@@ -768,3 +768,133 @@ The curves show trends, not just outcomes.
 - You can adjust learning rates, epochs, or architecture intelligently.
 
 # Testing and Model Evaluation
+## Additional Imports to add:
+```
+import os
+import seaborn as sns
+from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
+```
+## Configuration and checkpoint loading
+```
+if os.path.exists(checkpoint_path):
+    ckpt = torch.load(checkpoint_path, map_location=device)
+    state = ckpt.get("model_state", ckpt.get("model_state_dict", None))
+    if state is not None:
+        model.load_state_dict(state)
+```
+
+    - torch.load(..., map_location=device) loads file into CPU/GPU depending on device
+    - model.load_state_dict(state) loads weights into the model which replaces the model parameters with saved ones
+
+```
+model.to(device)
+model.eval()
+```
+.to(device) ensures model is on CPU or GPU consistent with input tensors
+.eval() toggles evaluatio mode to disable dropout and cause BatchNorm to use learned running mean/variance instead of batch statistics
+
+## Running inference and collecting outputs
+```
+all_preds = []
+all_probs = []
+all_labels = []
+
+softmax = torch.nn.Softmax(dim=1)
+with torch.no_grad():
+    for images, labels in test_loader:
+        images = images.to(device)
+        outputs = model(images)          # logits
+        probs = softmax(outputs)         # convert logits -> probabilities
+        preds = torch.argmax(probs, dim=1)
+        all_probs.extend(probs.cpu().numpy())
+        all_preds.extend(preds.cpu().numpy().tolist())
+        all_labels.extend(labels.cpu().numpy().tolist())
+```
+    - outputs = model(images) returns logits (raw scores). Softmax **should not** be applied during training process when using CrossEntropyLoss, but for interpreting probabilities at test time.
+    - torch.argmax(probs, dim=1) picks class with highest probability for each sample
+    - we .cpu() and convert to numpy lists so they're easy to analyze with scikit learn and numpy
+
+## Confusion Matrix and Classification Report
+```
+class_names = test_data.classes
+cm = confusion_matrix(all_labels, all_preds)
+print(classification_report(all_labels, all_preds, target_names=class_names, digits=4))
+```
+    
+    -test_data.classes is the ImageFolder class order which we use to map indices to class names
+    - confusion_matrix returns square matrix [i,j] = count of true class i predicted as j
+    - classification_report gives precision, recall, and F1 per class:
+        - Precision = TP / (TP + FP) - of predicted positives, how many were correct?
+        - Recall = TP / (TP + FN) = of true positives, how many did we detect
+        - F1 = harmonic mean of precision and recall
+
+## Per-class accuracy
+```
+per_class_acc = cm.diagonal() / cm.sum(axis=1)
+for idx, cls in enumerate(class_names):
+    print(f"Class '{cls}': {per_class_acc[idx]*100:.2f}% ({int(cm[idx,idx])}/{int(cm.sum(axis=1)[idx])})")
+```
+
+    - cm.diagonal() are true positives for each class
+    - dividing by c.sum(axis=1) (sum over row) gives recall per clas (i.e., fraction of that class correctly identified)
+
+## Unnormalize and visualize misclassified examples
+Since we want the original-looking images (not normalized tensors), the code tries to find the Normalize used in the test transforms and invert it. This handles both single-channel and three-channel Normalize
+
+def get_normalize_params(transform):
+    - searches inside compose for a Normalize object and returns its mean and std
+
+def broadcast_mean_std(mean, std):
+    - If normalize used a single-channel tuple, we replicate it across three channels so unnormalization works for RGB images
+
+def unnormalize_tensor(img_tensor, mean, std):
+    - for each channel multiply by std and add mean to invert the Normalize operation, then convert to HWC for plotting
+
+mis_idx = np.where(all_preds != all_labels)[0]
+    - Indices of missclassified samples. Because test_loader was created with shuffle=False, indexing test_data[idx] returns the *same* sample that produced all_preds[idx]. If the test loader had been shuffled, you must not index test_data like this since the mapping would not match
+
+We iterate through the first num_classified_to_show misclassifications, unnormalize each image, and plot them with True/Pred labels. Seeing this often reveals whether the model fails on noisy images, label mistakes, or visually ambiguous cases
+
+## Adding Model Checkpoint
+This is a saved copy of the model's parameters (weights and biases) during training. It's usually saved when the model performs best on the validation set
+
+This prevents overfitting from ruining a good model later in training and ensures you always keep the best performer
+
+```
+    checkpoint = {
+        "epoch": epoch + 1,
+        "model_state": model.state_dict(),
+        "optimizer_state": optimizer.state_dict(),
+        "val_accuracy": best_val_acc,
+    }
+```
+
+    This is a dictionary containing:
+        - The current epoch
+        - The model weights (state_dict)
+        - The optimizer state (so we can continue training later if we want)
+        - The best validation accuracy so far
+
+
+# Random notes:
+Ensure all dependencies are installed:
+```bash
+pip install torch torchvision matplotlib seaborn scikit-learn numpy pandas
+```
+
+For reproducability:
+```
+import torch
+import numpy as np
+import random
+
+def set_seed(seed=42):
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+
+set_seed(42)
+```

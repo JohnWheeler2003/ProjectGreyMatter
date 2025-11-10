@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import seaborn as sns
+from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 
 # Check device (GPU if available)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -178,6 +180,9 @@ val_losses = []
 train_accuracies = []
 val_accuracies = []
 
+best_val_acc = 0.0
+checkpoint_path = "best_brain_tumor_cnn.pth"
+
 for epoch in range(num_epochs):
     print(f"\nEpoch {epoch+1}/{num_epochs}")
     print("-" * 30)
@@ -237,6 +242,18 @@ for epoch in range(num_epochs):
 
     print(f"Validation Loss: {epoch_val_loss:.4f} | Accuracy: {epoch_val_acc*100:.2f}%")
 
+    # Save the best model
+    if epoch_val_acc > best_val_acc:
+        best_val_acc = epoch_val_acc
+        checkpoint = {
+            "epoch": epoch + 1,
+            "model_state": model.state_dict(),
+            "optimizer_state": optimizer.state_dict(),
+            "val_accuracy": best_val_acc,
+        }
+        torch.save(checkpoint, checkpoint_path)
+        print(f"New best model saved with Validation Accuracy: {best_val_acc*100:.2f}%")
+
 print("\nTraining complete!")
 
 # 10. Plot training curves
@@ -254,3 +271,138 @@ plt.legend()
 plt.title("Accuracy over Epochs")
 plt.savefig("training_validation_curves.png")
 
+# 10. Testing and Evaluation
+
+# Configuration
+checkpoint_path = "best_brain_tumor_cnn.pth" # Change if your saved checkpoint has a different name
+cm_plot_path = "confusion_matrix.png"
+misclassified_plot = "misclassified_examples.png"
+num_misclassified_to_show = 8 # how many misclassified images to save/show
+
+# 10.1: Load the best checkpoint if it exists
+if os.path.exists(checkpoint_path):
+    ckpt = torch.load(checkpoint_path, map_location=device)
+    # support different key names used in different saving snippets
+    state = ckpt.get("model_state", ckpt.get("model_state_dict", None))
+    if state is not None:
+        model.load_state_dict(state)
+        print(f"Loaded model state from checkpoint: {checkpoint_path} (epoch {ckpt.get('epoch', '?')})")
+    else:
+        print(f"Checkpoint found but model state key not recognized. Using current model weights.")
+else:
+    print(f"No checkpoint found at '{checkpoint_path}'. Using current model weights (no checkpoint).")
+
+model.to(device)
+model.eval() # ensure eval model (disables dropout, fixes batchnorm)
+
+#10.2 Run inference on test set and collect predictions + probabilities
+all_preds = []
+all_probs = []
+all_labels = []
+
+softmax = torch.nn.Softmax(dim=1)
+
+with torch.no_grad(): # no gradients needed for inference
+    for images, labels in test_loader:
+        images = images.to(device)
+        outputs = model(images) # logits, shape [B, num_classes]
+        probs = softmax(outputs) # probabilities, shape [B, num_classes]
+        preds = torch.argmax(probs, dim=1)
+
+        all_probs.extend(probs.cpu().numpy()) # store probabilities if needed later
+        all_preds.extend(preds.cpu().numpy().tolist())
+        all_labels.extend(labels.cpu().numpy().tolist())
+
+all_preds = np.array(all_preds)
+all_labels = np.array(all_labels)
+all_probs = np.array(all_probs)
+
+#10.3 Overall Accuracy
+test_acc = accuracy_score(all_labels, all_preds)
+print(f"\nTest Accuracy: {test_acc*100:.2f}%")
+
+#10.4 Confusion Matrix and classification report (precision/recall/F1)
+class_names = test_data.classes
+cm = confusion_matrix(all_labels, all_preds)
+print("\nClassification Report (per-class precision / recall / F1 score):\n")
+print(classification_report(all_labels, all_preds, target_names=class_names, digits=4))
+
+#10.5 Plot and save confusion matrix
+plt.figure(figsize=(8,6))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=class_names, yticklabels=class_names)
+plt.xlabel("Predicted")
+plt.ylabel("True")
+plt.title(f"Confusion Matrix (Test) - Accuracy: {test_acc*100:.2f}%")
+plt.tight_layout()
+plt.savefig(cm_plot_path)
+plt.close()
+print(f"Saved confusion matrix to {cm_plot_path}")
+
+#10.6 Per-class accuracy (true-class recall)
+per_class_acc = cm.diagonal() / cm.sum(axis=1)
+for idx, cls in enumerate(class_names):
+    print(f"Class '{cls}': {per_class_acc[idx]*100:.2f}% ({int(cm[idx,idx])}/{int(cm.sum(axis=1)[idx])})")
+
+# 10.7 Visualize misclassified examples (helps qualitative debugging)
+#Helper: extract mean/std from transform (works of Normalize exists; handles single-channel too)
+def get_normalize_params(transform):
+    mean = None
+    std = None
+    if hasattr(transform, "transforms"):
+        for t in transform.transforms:
+            if isinstance(t, transforms.Normalize):
+                mean = t.mean
+                std = t.std
+                break
+    return mean, std
+
+mean, std = get_normalize_params(test_data.transform)
+if mean is None or std is None:
+    # fallback if Normalize not present in transform, assume 0.5/0.5
+    mean = (0.5,)
+    std = (0.5,)
+    print("Warning: Normalize() not found in test transform - falling back to mean=(0.5,) std=(0.5,)")
+
+# Broadcast single-channel mean/std to 3 channels if needed
+def broadcast_mean_std(mean, std):
+    if len(mean) == 1:
+        mean3 = tuple([float(mean[0])] * 3)
+        std3 = tuple([float(std[0])] * 3)
+        return mean3, std3
+    else:
+        return tuple([float(m) for m in mean]), tuple([float(s) for s in std])
+
+mean3, std3 = broadcast_mean_std(mean, std)
+
+def unnormalize_tensor(img_tensor, mean, std):
+    """Given a tensor in C,H,W normalized by (mean,std), return H,W,C np array in [0,1]."""
+    img = img_tensor.clone().cpu()
+    for c in range(img.shape[0]):
+        img[c] = img[c] * std[c] + mean[c]
+    img = img.permute(1,2,0).numpy()
+    img = np.clip(img, 0, 1)
+    return img
+
+mis_idx = np.where(all_preds != all_labels)[0]
+num_to_show = min(len(mis_idx), num_misclassified_to_show)
+
+if num_to_show == 0:
+    print("No misclassified examples to show (model predicted all test samples correctly).")
+else:
+    plt.figure(figsize=(16, 4 * ((num_to_show + 3)//4)))
+    for i in range(num_to_show):
+        idx = mis_idx[i]
+        # Because test loader was created with shuffle=False, indexing test_data directly corresponds
+        img_tensor, true_label = test_data[idx] # returns normalized tensor
+        pred_label = all_preds[idx]
+        img = unnormalize_tensor(img_tensor, mean3, std3)
+
+        ax = plt.subplot((num_to_show + 3)//4, 4, i+1)
+        ax.imshow(img)
+        ax.set_title(f"True: {class_names[true_label]}\nPred: {class_names[int(pred_label)]}")
+        ax.axis("off")
+
+    plt.tight_layout()
+    plt.savefig(misclassified_plot)
+    plt.close()
+    print(f"Saved {num_to_show} misclassified examples to {misclassified_plot}")
