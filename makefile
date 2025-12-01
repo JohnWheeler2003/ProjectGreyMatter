@@ -9,7 +9,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 
 # Python dependencies
-REQUIREMENTS := torch torchvision torchaudio matplotlib seaborn scikit-learn numpy pandas
+REQUIREMENTS := torch torchvision torchaudio matplotlib seaborn scikit-learn numpy pandas timm
 
 
 # Default target
@@ -57,7 +57,7 @@ clean:
 	@find . -name ".DS_Store" -delete
 	@find . -name "*.png" -delete
 	@find . -name "*.pth" -delete
-	@echo " Cleanup complete."
+	@echo "Cleanup complete."
 
 # 5. Remove the virtual environment completely
 
@@ -74,8 +74,7 @@ rebuild: clean-env all
 # 7. Help command
 
 help:
-	@echo " Makefile commands for ProjectGreyMatter"
-	@echo ""
+	@echo "Makefile commands for ProjectGreyMatter"
 	@echo "  make           : Create virtual environment '$(VENV)' and install dependencies"
 	@echo "  make run       : Run classification.py (auto-checks missing dependencies)"
 	@echo "  make clean     : Remove __pycache__, .pyc/.pyo files, .DS_Store, and generated .png files"
