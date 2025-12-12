@@ -132,9 +132,11 @@ This project is fully automated using a Makefile.
     Remove caches, .png plots, .pth checkpoints:
 
 4. Remove the virtual environment
+   
     `make clean-env`
 
-5. Full rebuild
+6. Full rebuild
+   
     `make rebuild`
 
 ## Key Features
