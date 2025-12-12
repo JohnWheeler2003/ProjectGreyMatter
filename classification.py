@@ -13,7 +13,7 @@ from sklearn.metrics import confusion_matrix, classification_report, accuracy_sc
 
 # Check device (GPU if available)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print ("Using device:", device)
+print ("\nUsing device:", device)
 
 # 1. Define paths
 train_dir = "BrainTumorImages/Training"
@@ -37,68 +37,8 @@ train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
 val_loader = DataLoader(val_data, batch_size=32, shuffle=False)
 test_loader = DataLoader(test_data, batch_size=32, shuffle=False)
 
-'''
-# 5. Visualization
-def show_images(dataset):
-    fig, axes = plt.subplots(1, 4, figsize=(10, 4))
-    for i in range(4):
-        image, label = dataset[i]
-        image = image.permute(1,2,0) #Converts from CxHxW to HxWxC
-        axes[i].imshow(image * 0.5 + 0.5) # Undo normalization for visualization
-        axes[i].set_title(dataset.classes[label])
-        axes[i].axis("off")
-    plt.savefig("sample_images.png")
 
-def show_images_one_per_class(dataset):
-    seen_classes = set()
-    fig, axes = plt.subplots(1, len(dataset.classes), figsize=(12,4))
-
-    i = 0
-    for img, label in dataset:
-        class_name = dataset.classes[label]
-        if class_name not in seen_classes:
-            seen_classes.add(class_name)
-            img = img.permute(1,2,0) # Convert from CxHxW to HxWxC
-            axes[i].imshow(img * 0.5 + 0.5) # Undo normalization for visualization
-            axes[i].set_title(class_name)
-            axes[i].axis("off")
-            i += 1
-        if len(seen_classes) == len(dataset.classes):
-            break
-    plt.tight_layout()
-    plt.savefig("sample_images_one_per_class.png")
-
-show_images(train_data)
-show_images_one_per_class(train_data)
-
-
-# 6. Test the Dataloader and count images in folder
-data_iter = iter(train_loader)
-images, labels = next(data_iter)
-
-print(f"Batch image tensor shape: {images.shape}")
-print(f"Batch label tensor shape: {labels.shape}")
-print(f"First 5 labels: {labels[:5].tolist()}")
-
-def count_images_in_folders(base_path):
-    print(f"\nImage counts for: {base_path}")
-    total = 0
-    for folder in sorted(os.listdir(base_path)):
-        folder_path = os.path.join(base_path, folder)
-        if os.path.isdir(folder_path):
-            count = len(os.listdir(folder_path))
-            total += count
-            print(f"  {folder}: {count} images")
-    print(f"Total in {os.path.basename(base_path)}: {total} images")
-
-# Verify all sets
-count_images_in_folders(train_dir)
-count_images_in_folders(val_dir)
-count_images_in_folders(test_dir)
-
-'''
-
-# 7. Define a simple CNN model
+# 5. Define a simple CNN model
 class BrainTumorCNN(nn.Module):
     def __init__(self):
         super(BrainTumorCNN, self).__init__()
@@ -151,28 +91,15 @@ class BrainTumorCNN(nn.Module):
         return x
     
 model = BrainTumorCNN().to(device)
-print(model)
+#print(model)
 
-'''
-# Test one batch
-data_iter = iter(train_loader)
-images, labels = next(data_iter)
-images = images.to(device)
-
-outputs = model(images)
-print("Input batch shape:", images.shape)
-print("Output batch shape:", outputs.shape)
-'''
-
-# 8 . Define loss function and optimizer
+# 6. Define loss function and optimizer
 criterion = nn.CrossEntropyLoss() # measures how wrong the model's predictions are
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001) # updates the models weights to minimize loss
 
-print("\nLoss function and optimizer defined successfully.")
 
-
-# 9. Training and Validation Loop
+# 7. Training and Validation Loop
 num_epochs = 10 # Number of full passes through the dataset
 
 train_losses = []
@@ -256,7 +183,7 @@ for epoch in range(num_epochs):
 
 print("\nTraining complete!")
 
-# 10. Plot training curves
+# 8. Plot training curves
 plt.figure(figsize=(10,4))
 plt.subplot(1,2,1)
 plt.plot(train_losses, label="Train Loss")
@@ -271,7 +198,7 @@ plt.legend()
 plt.title("Accuracy over Epochs")
 plt.savefig("training_validation_curves.png")
 
-# 10. Testing and Evaluation
+# 9. Testing and Evaluation
 
 # Configuration
 checkpoint_path = "best_brain_tumor_cnn.pth" # Change if your saved checkpoint has a different name

@@ -2,87 +2,82 @@
 
 # Understanding Image Data Preprocessing
 
-## 1. What to install into venv
+## 1. What to install into the virtual environment
 ```bash
 pip install torch torchvision torchaudio matplotlib numpy pandas
 
 pip install jupyter tqdm
 ```
-torch       -> Core PyTorch library (tensors, models, training)
-torchvision -> Datasets, transforms, pretrained models
-torchaudio  -> Comes with torch suite (safe to include)
-matplotlib  -> For image visualization
-numpy       -> General math and array operations
-pandas      -> For handling any data or metrics
-tqdm        -> Optional progress bars for training loops
+- torch: Core PyTorch library (tensors, models, training)
+- torchvision: Datasets, transforms, pretrained models
+- torchaudio : Comes with torch suite (safe to include)
+- matplotlib: For image visualization
+- numpy: General math and array operations
+- pandas: For handling any data or metrics
+- tqdm : Optional progress bars for training loops
 
 ## 2. Define Image Transformations
-    - transforms.Resize((128,128))
-        Resizes images to find good balance between resolution and training speed
-            - 512x 512 has 262,144 pixels. 128x128 has 16384 pixels ...16 times less data per image
+1. ```transforms.Resize((128,128))```
+    Resizes images to find good balance between resolution and training speed
+    - 512x 512 has 262,144 pixels. 128x128 has 16384 pixels ...16 times less data per image
 
-            - Feature Learning
-                - for classification (not diagnosis), CNNs don't need to see every tiny pixel detail. The patterns distinguishing classes (shape or texture differences between tumor type) remain visible even at smaller scales
+    Feature Learning
+    - For classification (not diagnosis), CNNs don't need to see every tiny pixel detail. The patterns distinguishing classes (shape or texture differences between tumor type) remain visible even at smaller scales
 
-    - transforms.ToTensor
-        converts image to tensor (C x H x W) and normalzies pixel values from [0,255] to [0,1]
+2. ```transforms.ToTensor```
+    - Converts image to tensor (C x H x W) and normalzies pixel values from [0,255] to [0,1]
 
-        scales pixel values.. doesn't yet normalize to [-1,1]
+    - Scales pixel values since it doesn't yet normalize to [-1,1]
 
-        - What is a tensor: multidimensional array
-            scalar -> single number
-            vector -> 1D tensor
-            matrix -> 2D tensor
-            image -> 3D tensor
+    - What is a tensor: multidimensional array
+        - scalar:  single number
+        - vector:  1D tensor
+        - matrix:  2D tensor
+        - image:  3D tensor
 
-        - Why use a tensor?
-            - They are easily processed by GPUs
-            - Automatically differentiated (for training)
-            - transformed efficiently
+    - Why use a tensor?
+        - They are easily processed by GPUs
+        - Automatically differentiated (for training)
+        - transformed efficiently
 
-        This function converts PIL image or NumPy array -> PyTorch Tensor
-        Additionally it scales pixel values from [0,255] to [0,1] by dividing each pixel by 255
-            Before:  [255, 128, 64]
-            After:   [1.0, 0.5, 0.25]
+    This function converts PIL image or NumPy array → PyTorch Tensor
+    Additionally it scales pixel values from [0,255] to [0,1] by dividing each pixel by 255
+        Before:  [255, 128, 64]
+        After:   [1.0, 0.5, 0.25]
 
 
-    - transforms.Normalize((0,5,),(0.5,))
-        rescales data so each pixel is between [-1, 1]
-        helps the gradients flow better and the network train more efficiently
+3. ```transforms.Normalize((0,5,),(0.5,))```
+    Rescales data so each pixel is between [-1, 1]
+    Helps the gradients flow better and the network train more efficiently
 
-        Why normalize?
-            - Neural networks train better when:
-                - the data has zero mean (centered around 0)
-                - and a consistent scale (so no single feature dominates others)
-            - essentially this stabilizes gradients and improves convergence speed
-            - Without normalization, some features (like bright pixels) dominate, gradients become unstable, and training may either fail to converge or overfit poorly. 
+    Why normalize?
+    - Neural networks train better when:
+        - the data has zero mean (centered around 0)
+        - and a consistent scale (so no single feature dominates others)
+    - This stabilizes gradients and improves convergence speed
+    - Without normalization, some features (like bright pixels) dominate, gradients become unstable, and training may either fail to converge or overfit poorly. 
 
 ## 3. Load datasets using ImageFolder
-    - Done so that each image is automatically labeled by the folder name (glioma, meningioma, etc) so that we don't have to manually label everything
+- Done so that each image is automatically labeled by the folder name (glioma, meningioma, etc) so that we don't have to manually label everything
 
 ## 4. Create DataLoaders
-    Why create them?
-        - allow you to batch and shuffle data efficiently which is useful when training on GPU
+1. Why create them?
+    - allow you to batch and shuffle data efficiently which is useful when training on GPU
 
-        Prevents loading of thousands of images so that your GPU/CPU memory doesn't blow up
+   - Prevents loading of thousands of images so that your GPU/CPU memory doesn't blow up
 
-    batch_size dictates how many images are passed through the model per training step
+    ```batch_size``` dictates how many images are passed through the model per training step
 
-    Why is shuffle true for training vs false for testing?
-        Shuffle=True (for training)
-            - Images are shuffled each epoch to avoid the model learning any ordering pattern (epoch being one complete pass through the whole dataset)
-                - for example: if all "glioma" images came before "meningioma" the model might overfit early classes
-            
-        Shuffle=False (for testing)
-            - When testing or validating, we want results to be reproducible and consistent, not randomized
-            - we just care about measuring performance, not learning patterns, so shuffling is unnecesary
+2. Why is shuffle true for training vs false for testing?
+    ```Shuffle=True``` (for training)
+    - Images are shuffled each epoch to avoid the model learning any ordering pattern (epoch being one complete pass through the whole dataset)
+        - for example: if all "glioma" images came before "meningioma" the model might overfit early classes
+        
+    ```Shuffle=False``` (for testing)
+    - When testing or validating, we want results to be reproducible and consistent, not randomized
+    - we just care about measuring performance, not learning patterns, so shuffling is unnecesary
 
-## 5 and 6 Testing
-    - 5 tests whether the images are being grabbed and labeled correctly
-    - 6 tests the dataloaders are working correclty by outputting:
-        - Batch image tensor shape which tells us how many samples it's taking, the dimensions, and the resolution of the images
-        - Batch label tensor shape tells us how many batches are being taken
-        - First 5 labels verify that we are using the correct categories
+
 
 ## NOTE ON STRUCTURE
 At this point, we could have multiple separate files to make a structure like this:
@@ -106,14 +101,14 @@ And we may do this down the road, but for now we will keep it in one file to mak
 
 ## 1. Convolutional Layers (nn.Conv2d)
 Think of convolution as a small "window" (called a filter or kernel) that slides across an image
-    - Each filter is a small matrix (like 3x3 or 5x5)
-    - It multiplies its values by the underlying image pixel values and sums them up
-    - The result becomes one pixel in the output feature map
-    - Different filters learn to detect edges, textues or shapes
+- Each filter is a small matrix (like 3x3 or 5x5)
+- It multiplies its values by the underlying image pixel values and sums them up
+- The result becomes one pixel in the output feature map
+- Different filters learn to detect edges, textues or shapes
 
 Why do we use it?
-    - Instead of processing each pixel individually, convolution captures spatial patterns like the outline of a tumor or texture differences in tissue
-    - Example: If a filter is designed to detect vertical edges, it will ouptut high values where vertical lines appear in the image like in tumor boundaries or folds in the brain structure
+- Instead of processing each pixel individually, convolution captures spatial patterns like the outline of a tumor or texture differences in tissue
+- Example: If a filter is designed to detect vertical edges, it will ouptut high values where vertical lines appear in the image like in tumor boundaries or folds in the brain structure
 
 ## 2. Activation Function (nn.ReLU)
 Most common activation function is ReLu (Rectified Linear Unit)
@@ -121,9 +116,9 @@ Most common activation function is ReLu (Rectified Linear Unit)
     ReLU(x) = max(0,x)
 
 Why do we use it?
-    - It adds non-linearity so the network is able to learn complex patterns
-    - It keeps positive signals and suppresses negative ones
-    - It prevents gradients from vanishing like older activatinos (sigmoid/tanh) often did
+- It adds non-linearity so the network is able to learn complex patterns
+- It keeps positive signals and suppresses negative ones
+- It prevents gradients from vanishing like older activatinos (sigmoid/tanh) often did
 
 It helps the network see complex shapes instead of just straight lines or simple gradients
 
@@ -131,51 +126,12 @@ It helps the network see complex shapes instead of just straight lines or simple
 Pooling reduces the spatial size of the image representation. Think of it like compressing the image while keeping the most important features
 
 Most common type is Max Pooling:
-    - It takes small regions (like 2x2) and keeps only the maximum value
-    - This reduces the computation and helps the model generalize (less sensitive to position)
+- It takes small regions (like 2x2) and keeps only the maximum value
+- This reduces the computation and helps the model generalize (less sensitive to position)
 
 Why do we use it?
-    - Pooling makes the model more robust. It doesn't seem to matter if a tumor is slightly off-center or rotated since the network will still recognize it now
+- Pooling makes the model more robust. It doesn't seem to matter if a tumor is slightly off-center or rotated since the network will still recognize it now
 
-## Quiz: 
-**Questions**
-Convolution:
-What does a convolutional layer actually do when it processes an image, and why is it useful in detecting patterns like edges or shapes?
-
-Filters (Kernels):
-If we increase the number of filters in a convolutional layer (for example, from 16 to 32), what effect does that have on what the model learns and its computational cost?
-
-Activation (ReLU):
-Why do we use a non-linear activation function like ReLU after each convolutional layer? What would happen if we didn’t use it?
-
-Pooling:
-What is the main purpose of max pooling, and how does it help the model generalize better?
-
-Order of operations:
-In a typical CNN block, why do we apply convolution → ReLU → pooling in that order, instead of pooling first or skipping ReLU?
-
-**Answers**
-1. A convolutional layer takes a small matrix and multiplies its values with the underlying pixel values and then sums them up to become one pixel in the output feature map. This is used to detect edges, textures, and various shapes since it extracts features. 
-2. It increases the computational cost and makes the model generalize the image features more 
-3. We use a non-linear activation function in order to learn complex patterns in the data. If we did not use it, we would be unable to capture complex patterns in data 
-4. Max pooling takes the maximum feature value in a small matrix and compresses the image so it is smaller and easier to process, yet keeps all the important features. 
-5. We have to extract the features first like the shapes, textures, and patterns in order to be able to learn more complex patterns. We need the feature map in order to do the pooling layer. If we skipped ReLU we would be unable to learn more complex patterns
-
-**Feedback**
-Convolutional layer:
-Perfect — it slides a small filter over the image to extract spatial features like edges, curves, and textures. Each filter learns a different kind of feature automatically during training.
-
-Filters:
-Exactly — more filters = the model can learn more diverse features (like vertical lines, circular regions, tumor textures, etc.), but at the cost of more computation and memory.
-
-ReLU:
-Right on. Without non-linearity, the CNN would just act like a linear filter — no matter how deep you stack layers, it would only learn simple transformations. ReLU lets it model complex shapes and tumor structures.
-
-Pooling:
-Perfect explanation. Max pooling reduces the resolution of the feature map but keeps the strongest (most relevant) signals, which helps generalization and reduces overfitting.
-
-Order (Conv → ReLU → Pool):
-Exactly. We must extract features (Conv), then apply non-linearity (ReLU) to make sense of them, and then pool to reduce spatial size. Pooling before convolution would remove detail before the network had a chance to learn from it.
 
 # Implementation of CNN Model
 
@@ -186,47 +142,47 @@ import torch.nn as nn
 import torch.nn.functional as F
 ```
 
-import torch:
-    - What is it?
-        - This is PyTorch's core library. It gives you tensors that can run on the GPU and automatically compute gradients
-    - Why we need it?
-        - We need this since for every deep learning model, it's parameters, and the training data are stored in torch.Tensor objects
-    - How it works:
-        - Tensors are like arrays, but they can live on the GPU (.to(device)) and record the history of operations for backpropagation
-        Example:
+```import torch```:
+- What is it?
+    - This is PyTorch's core library. It gives you tensors that can run on the GPU and automatically compute gradients
+- Why we need it?
+    - We need this since for every deep learning model, it's parameters, and the training data are stored in torch.Tensor objects
+- How it works:
+    - Tensors are like arrays, but they can live on the GPU (```.to(device)```) and record the history of operations for backpropagation
+    Example:
+```
+        a = torch.tensor([1.0, 2.0], requires_grad=True)
+        b = a * 3
+        b.sum().backward()
+        print(a.grad)  # tensor([3., 3.])
+```
+PyTorch automatically computed the gradient of the sum
 
-            a = torch.tensor([1.0, 2.0], requires_grad=True)
-            b = a * 3
-            b.sum().backward()
-            print(a.grad)  # tensor([3., 3.])
+```import torch.nn as nn```:
+- What is it?
+    - Provides building blocks (like Conv2d, Linear, BatchNorm2d) to define neural network layers
+- Why we need it?
+    - Instead of writing every layer mathematically by hand, nn lets us declare them as objects
+    - Example: 
 
-            PyTorch automatically computed the gradient of the sum with respect to a
+        ```layer = nn.Linear(10, 5)```
 
-Import torch.nn as nn:
-    - What is it?
-        - Provides building blocks (like Conv2d, Linear, BatchNorm2d) to define neural network layers
-    - Why we need it?
-        - Instead of writing every layer mathematically by hand, nn lets us declare them as objects
-        - Example: 
+        - This creates a layer that transforms a 10-dimensional vector into a 5 dimensional one with learned weights and biases
+- How it works?
+    - Each layer stores its parameters and can be used inside an nn.Module which automatically handles parameter tracking and gradients
 
-            layer = nn.Linear(10, 5)
+```import torch.nn.functional as F```
+- What is it?
+    - A functional interface that gives you operations like relu, sigmoid, softmax, and cross_entropy
+- Why do we need it?
+    - It's a lightweight way to apply functions without creating a layer object
+    Example:
 
-            This creates a layer that transforms a 10-dimensional vector into a 5 dimensional one with learned weights and biases
-    - How it works?
-        - Each layer stores its parameters and can be used inside an nn.Module which automatically handles parameter tracking and gradients
+        ```x = F.relu(x)```
 
-import torch.nn.functional as F
-    - What is it?
-        - A functional interface that gives you operations like relu, sigmoid, softmax, and cross_entropy
-    - Why do we need it?
-        - It's a lightweight way to apply functions without creating a layer object
-        Example:
-
-            x = F.relu(x)
-
-            This applies the ReLU activation in one line
-    - How it works?
-        - These functions are stateless (meaning they do not have learnable paramaters). This means we can call them directly in forward()
+        - This applies the ReLU activation in one line
+- How it works?
+    - These functions are stateless (meaning they do not have learnable paramaters). This means we can call them directly in forward()
 
 ## Class Definition
 ```
@@ -235,59 +191,60 @@ class BrainTumorCNN(nn.Module):
         super(BrainTumorCNN, self).__init__()
 ```
 
-class BraintumorCNN(nn.Module):
-    - Defines the CNN as a class that inherits from nn.Module. This gives it all PyTorch's neural network features (like tracking parameters, moving to GPU, saving, etc)
-    - Standard for all custom models to inherit from nn.Module
+```class BraintumorCNN(nn.Module)```:
+- Defines the CNN as a class that inherits from nn.Module. This gives it all PyTorch's neural network features (like tracking parameters, moving to GPU, saving, etc)
+- Standard for all custom models to inherit from nn.Module
 
-def __init__(self):
-    - This is the constructor. It contains everything that defines the structure of the model (layers, dropout, etc)
+```def __init__(self)```:
+- This is the constructor. It contains everything that defines the structure of the model (layers, dropout, etc)
 
-super(BrainTumorCNN, self).__init__()
-    - This calls the parent nn.Module's constructor so PyTorch can register the layers properly
+```super(BrainTumorCNN, self).__init__()```
+- This calls the parent nn.Module's constructor so PyTorch can register the layers properly
             
 ## Convolutional Block 1
 
-nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3, padding=1)
-    - in_channels=3 -> input has 3 color channels (RGB Images)
-    - out_channels=32 -> Learns 32 filters, meaning it outputs 32 "feature maps"
-    - kernel_size=3 -> Each filter is 3x3 pixels
-    - padding=1 -> Adds 1 pixel of zero padding on each side, so the spatial dimensions(height and width) stay the same after convolution
+```nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3, padding=1)```
+- in_channels=3 → input has 3 color channels (RGB Images)
+- out_channels=32 → Learns 32 filters, meaning it outputs 32 "feature maps"
+- kernel_size=3 → Each filter is 3x3 pixels
+- padding=1 → Adds 1 pixel of zero padding on each side, so the spatial dimensions(height and width) stay the same after convolution
 
-    Conceptually:
-        - Each convolutional layer slides these filters across the image which computes dot products at each location, detecting local patterns like edges or curves
-    Mathematically:
-        output_pixel = sum(kernel_values * image_patch) + bias
+Conceptually:
+- Each convolutional layer slides these filters across the image which computes dot products at each location, detecting local patterns like edges or curves
 
-        this is repeated for each pixel and each filter
+Mathematically:
+    ```output_pixel = sum(kernel_values * image_patch) + bias```
 
-    The output after Conv2d(3 -> 32) is [batch_size, 32, height, width]
+- This is repeated for each pixel and each filter
 
-nn.BatchNorm2d(32)
-    - What does it do?
-        - Normalizes each channel's activations to have zero mean and unit variance.
-    - Why?
-        This makes training faster and more stable (reduces "internal covariate shift")
-    - How?
-        - During training, it computes batch mean and variance, then rescales
+The output after Conv2d(3 → 32) is [batch_size, 32, height, width]
 
-nn.MaxPool2d(kernel_size=2, stride=2)
-    - What does it do?
-        - Downsamples the image by taking the maximum value in each 2x2 region
-    - Why?
-        - Reduces spatial dimensions (height and width), which keeps the most dominant features, and reduces computation
-    - Effect
-        - Halves the spatial resolution
-            If the image was 128x128, it would now be 64x64 after the first pool
+```nn.BatchNorm2d(32)```
+- What does it do?
+    - Normalizes each channel's activations to have zero mean and unit variance.
+- Why?
+    This makes training faster and more stable (reduces "internal covariate shift")
+- How?
+    - During training, it computes batch mean and variance, then rescales
+
+```nn.MaxPool2d(kernel_size=2, stride=2)```
+- What does it do?
+    - Downsamples the image by taking the maximum value in each 2x2 region
+- Why?
+    - Reduces spatial dimensions (height and width), which keeps the most dominant features, and reduces computation
+- Effect
+    - Halves the spatial resolution
+        If the image was 128x128, it would now be 64x64 after the first pool
 
 ## Repeated Convolutional Blocks (2-5)
-
+```
 self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
 self.bn2 = nn.BatchNorm2d(64)
 self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
-
+```
 Think of each block as:
-    - Going **deeper** -> doubling the number of filters (out_channel)
-    - Going **smaller** -> halving the spatial dimensions each time (128 -> 64 -> 32 ->16 ->8 -> 4)
+    - Going **deeper** → doubling the number of filters (out_channel)
+    - Going **smaller** → halving the spatial dimensions each time (128 → 64 → 32 →16 →8 → 4)
 
     After all five blocks:
 
@@ -301,25 +258,25 @@ Think of each block as:
 
 ## Fully Connected (Dense) Layers
 
-nn.Linear(512 * 4 * 4, 256)
-    - The flattened output from the convolutional part has 512 * 4 * 4 = 8192 features per image
-    - nn.Linear creates a layer that maps 8192 inputs -> 256 outputs
-    - This mxes all features and lets the model learn higher-level combinations
+```nn.Linear(512 * 4 * 4, 256)```
+- The flattened output from the convolutional part has 512 * 4 * 4 = 8192 features per image
+- ```nn.Linear``` creates a layer that maps 8192 inputs → 256 outputs
+- This mxes all features and lets the model learn higher-level combinations
 
-nn.Dropout(0.5)
-    - Randomly drops 50% of neurons in each training step
-    - Forces the network not to rely on any single feature -> prevents overfitting
+```nn.Dropout(0.5)```
+- Randomly drops 50% of neurons in each training step
+- Forces the network not to rely on any single feature → prevents overfitting
 
 nn.Linear(256, 4)
-    - Final layer that outputs 4 values -> one for each class
+    - Final layer that outputs 4 values → one for each class
     - These aren't probabilities yet; we'll apply a softmax later (via CrossEntropyLoss)
 
 ## Forward Pass
 
-x = self.conv1(x) -> applies filters to the input image
-self.bn1(x) -> normalizes the results
-F.relu() -> activates neurons (keeps positives, zeroes negatives)
-self.pool1() -> downsamples 
+x = self.conv1(x) → applies filters to the input image
+self.bn1(x) → normalizes the results
+F.relu() → activates neurons (keeps positives, zeroes negatives)
+self.pool1() → downsamples 
 
 This is repeated for 5 blocks
 
@@ -401,7 +358,7 @@ print ("Output shape:", output.shape)
 
     - This makes data flow through the network
 
-    - ReLU (Rectified Linear Unit) -> ReLU(x) = max(0,x)
+    - ReLU (Rectified Linear Unit) → ReLU(x) = max(0,x)
         - This means if the neuron output is negative, make it 0. If it's positive, keep it
         - Why does this matter?
             - Introduces non-linearity - without it, the CNN would be a fancy linear transformation (unable to learn complex patterns)
@@ -409,9 +366,9 @@ print ("Output shape:", output.shape)
             - keeps computations simple and fast
 
     When `F.relu(self.bn1(self.conv1(x)))` is seen, the flow is:
-        - conv1 -> extract features
-        - bn1 -> normalize them
-        - relu -> activate only the meaningful ones
+        - conv1 → extract features
+        - bn1 → normalize them
+        - relu → activate only the meaningful ones
 
 
 4. What does it mean raw scores for each of the 4 tumor classes in the outputs = model(images) explanation?
@@ -469,7 +426,7 @@ Output batch shape: torch.Size([32, 4])
 
     - What it affects
         This value guides the optimizer on how far off the predictions are
-            - the lower the loss -> the closer the model's predicted probabilities are to the correct labels
+            - the lower the loss → the closer the model's predicted probabilities are to the correct labels
 
 ## optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     - Purpose:
@@ -487,8 +444,8 @@ Output batch shape: torch.Size([32, 4])
 
     - lr=0.001
         - Learning rate controls how big of a step the optimizer takes when updating the weights
-            - too high -> unstable training (overshoots minima)
-            - too low -> very slow learning
+            - too high → unstable training (overshoots minima)
+            - too low → very slow learning
 
             - 0.001 is standard and safe starting value for Adam
 
@@ -497,7 +454,7 @@ Output batch shape: torch.Size([32, 4])
 This is how the CNN actually learns
 
 num_epochs: one complete pass through the entire training dataset
-    - More epochs -> better learning *to a point*, but risk of overfitting if trained too long
+    - More epochs → better learning *to a point*, but risk of overfitting if trained too long
 
 train_losses = []
 val_losses = []
@@ -566,9 +523,9 @@ Track Metrics
     total += labels.size(0)
     ```
 
-        - loss.item() -> converts the loss tensor to a scalar value
+        - loss.item() → converts the loss tensor to a scalar value
         - Multiply by batch size to get the total loss for all images in the batch
-        - torch.max(outputs, 1) -> finds the index (class) with the highest predicted score per image
+        - torch.max(outputs, 1) → finds the index (class) with the highest predicted score per image
         - Compared with true labels to count correct predictions
 
 Epoch Summary Training
@@ -804,7 +761,7 @@ with torch.no_grad():
     for images, labels in test_loader:
         images = images.to(device)
         outputs = model(images)          # logits
-        probs = softmax(outputs)         # convert logits -> probabilities
+        probs = softmax(outputs)         # convert logits → probabilities
         preds = torch.argmax(probs, dim=1)
         all_probs.extend(probs.cpu().numpy())
         all_preds.extend(preds.cpu().numpy().tolist())
