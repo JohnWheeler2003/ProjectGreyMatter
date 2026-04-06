@@ -10,19 +10,13 @@ __pycache__/
 *$py.class
 .pytest_cache/
 
-# --- Machine Learning Artifacts ---
-*.pth
-*.pt
-*.onnx
-
-# DataFolder
+# DataFolders
 /BrainTumorImages
+/BonusScripts
 
 # --- Output & Logs ---
 *.png
-*.jpg
-*.jpeg
-*.log
+*.pth
 
 # --- OS Specific Files ---
 .DS_Store

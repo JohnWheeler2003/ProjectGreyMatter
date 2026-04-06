@@ -1,164 +1,116 @@
-# ProjectGreyMatter – MRI Brain Tumor Classification (PyTorch)
+# ProjectGreyMatter II – MRI Brain Tumor Classification (PyTorch)
 ## Overview
 
-This project implements a Convolutional Neural Network (CNN) using PyTorch to classify MRI brain images into one of four tumor categories:
-- Glioma
-- Meningioma
-- Pituitary
-- No Tumor
+This project implements a Deep Convolutional Neural Network (CNN) using PyTorch to classify MRI brain images into one of four tumor categories: Glioma, Meningioma, Pituitary, or No Tumor. Currently, the project is expanding upon its base custom CNN architecture to integrate advanced deep learning techniques, including ResNet architectures, data augmentation, learning rate scheduling, hyperparameter tuning, and model interpretability to better visualize how the model makes decisions.
 
-The model is trained using a custom dataset of MRI images organized into Training, Validation, and Testing splits.
+### Key Features:
 
-It outputs training curves, a confusion matrix, classification metrics, and visualizations of misclassified examples.
+- Native hardware acceleration optimized for Intel Core Ultra / Arc Graphics (XPU).
 
-The project includes a full Makefile-based workflow that builds a virtual environment, installs dependencies, runs the model, and cleans generated files.
+- Automated training, validation, and checkpointing pipeline.
+
+- Comprehensive evaluation metrics, including confusion matrices and misclassification visualizations.
+
+- Fully automated environment setup and execution via Windows PowerShell.
 
 ## Project Structure
+To run successfully, your dataset must be placed in a BrainTumorImages/ directory with subfolders for each split:
 ```
 ProjectGreyMatter/
-├── BrainTumorImages/
-│   ├── Training/
-│   ├── Validation/
-│   └── Testing/
-├── README.md
-├── classification.py
-├── explanations.md
-├── makefile
-├── valcreation.py
-└── verifyimgcount.py
+├── BrainTumorImages/        # Training, Validation, and Testing splits
+├── brain/                   # Local Virtual Environment (Git Ignored)
+├── manage.ps1               # Windows PowerShell Automation Script
+├── train.py                 # Main Entry Point (replaces classification.py)
+├── model.py                 # CNN Architecture
+├── dataset.py               # Data Loading & Transforms
+├── utils.py                 # Plotting & Helper Functions
+├── config.py                # Hyperparameters & Hardware Selection
+└── evaluate.py              # Model Evaluation & Metrics
 ```
 
-## Expected Dataset Structure
 
-Each split should contain subfolders representing the four classes:
+Each split in BrainTumorImages/ should contain subfolders representing the four classes:
 ```
 Training/
-    glioma/
-    meningioma/
-    pituitary/
-    notumor/
+├──glioma/
+├──meningioma/
+├──pituitary/
+└──notumor/
 ```
-## Model Architecture
-
-The CNN architecture consists of five convolutional blocks, each containing:
-- Convolution layer
-- Batch Normalization
-- ReLU activation
-- MaxPooling
-
-Followed by two fully connected layers:
-
-| Layer Type   | Details                              |
-| ------------ | ------------------------------------ |
-| Conv Block 1 | 3 → 32 filters                       |
-| Conv Block 2 | 32 → 64 filters                      |
-| Conv Block 3 | 64 → 128 filters                     |
-| Conv Block 4 | 128 → 256 filters                    |
-| Conv Block 5 | 256 → 512 filters                    |
-| FC1          | Linear(512×4×4 → 256) + Dropout(0.5) |
-| FC2          | Linear(256 → 4 classes)              |
+## Model & Pipeline Architecture
+Our custom baseline model follows a hierarchical feature extraction approach designed for multi-class MRI classification. It utilizes ```AdaptiveAvgPool2d``` instead of a traditional flat layer to remain robust against varying input resolutions and reduce overfitting.
 
 
-The model uses CrossEntropyLoss and the Adam optimizer (`lr = 0.001`).
+### Layer Specifications
+
+| Layer Type | Output Channels | Kernel Size | Activation |
+| :--- | :--- | :--- | :--- |
+| Conv Block 1 | 32 | 3×3 | ReLU + BatchNorm |
+| Conv Block 2 | 64 | 3×3 | ReLU + BatchNorm |
+| Conv Block 3 | 128 | 3×3 | ReLU + BatchNorm |
+| Conv Block 4 | 256 | 3×3 | ReLU + BatchNorm |
+| Conv Block 5 | 512 | 3×3 | ReLU + BatchNorm |
+| Adaptive Pool | 512 | 1×1 | - |
+| FC Layer 1 | 256 | - | ReLU + Dropout |
+| Output Layer | 4 | - | Softmax (Logits) |
+
 
 ## Training Pipeline
+- Optimizer: AdamW (Adam with Decoupled Weight Decay) for improved regularization.
 
-The training loop includes:
-- GPU/CPU detection
-- Loss & accuracy tracking
-- Validation at each epoch
-- Automatic saving of the best-performing model checkpoint
-- Training/validation curve visualization
-- Early qualitative debugging through misclassification plots
+- Loss Function: Cross-Entropy Loss, ideal for the 4-class categorization.
 
-## Training Output Files
-| File                             | Description                           |
-| -------------------------------- | ------------------------------------- |
-| `best_brain_tumor_cnn.pth`       | Best model checkpoint                 |
-| `training_validation_curves.png` | Loss & accuracy plots                 |
-| `confusion_matrix.png`           | Saved confusion matrix                |
-| `misclassified_examples.png`     | Sample images the model misclassified |
-
-## Evaluation Metrics
-
-After training, the code automatically computes:
-- Test accuracy
-- Confusion matrix
-- Classification report
-    - Precision
-    - Recall
-    - F1-score
-- Per-class accuracy
-- Misclassified sample visualization
-
-## Reproducibility
-
-The following techniques help ensure consistent results:
-- Fixed transformation pipeline
-- No shuffling in the test loader
-- Checkpoint-based testing
-- Deterministic evaluation mode (model.eval() disables dropout)
-
-If exact bit-level reproducibility is required, PyTorch seeds and deterministic backend settings can be added.
-
-## How to Run the Project
-
-This project is fully automated using a Makefile.
-1. Create the virtual environment & install dependencies
-
-    `make`
-
-    This creates a virtual environment named brain and installs:
-    - torch
-    - torchvision
-    - torchaudio
-    - matplotlib
-    - seaborn
-    - scikit-learn
-    - numpy
-    - pandas
-    - timm
-
-2. Run the classification pipeline
-
-    `make run`
+- Hardware Acceleration: Auto-detects and utilizes the native PyTorch XPU backend (Intel Integrated/Discrete GPUs and NPUs).
 
 
-    This runs classification.py inside the virtual environment and automatically checks for missing packages.
+## How to Run (Windows PowerShell)
 
-3. Clean temporary files
+The project is fully automated using manage.ps1. If you encounter a script execution error, run Set-ExecutionPolicy RemoteSigned -Scope CurrentUser in PowerShell first.
 
-    `make clean`
-    Remove caches, .png plots, .pth checkpoints:
+Setup & Install Dependencies Automatically creates the brain venv and installs the specialized Intel XPU PyTorch builds:
+PowerShell
 
-4. Remove the virtual environment
-   
-    `make clean-env`
+```.\manage.ps1 all```
 
-6. Full rebuild
-   
-    `make rebuild`
+Run Training & Evaluation Starts the pipeline using train.py:
+PowerShell
 
-## Key Features
+```.\manage.ps1 run```
 
-- Simple but deep CNN architecture
--  GPU support (if available)
--  Automatic checkpointing
-- Training & validation visualizations
--  Confusion matrix & classification report
--  Misclassified image visualization
--  Full Makefile workflow
-- Reproducible, modular, easy to extend
+Clean Temporary Files Removes __pycache__, .png plots, and .pth checkpoints:
+PowerShell
+
+```.\manage.ps1 clean```
+
+Full Rebuild Deletes the environment and reinstalls everything from scratch:
+PowerShell
+
+```.\manage.ps1 rebuild```
+
+## Evaluation & Outputs
+
+The pipeline evaluates the model on a dedicated validation set after every epoch. It utilizes a "Best-Model" saving strategy, tracking validation accuracy and only saving the state if it outperforms previous epochs. To ensure reproducibility, the project uses a fixed transformation pipeline and a checkpoint-based testing protocol.
+
+Generated Artifacts:
+| File | Description |
+| :--- | :--- |
+| best_brain_tumor_cnn.pth | The highest-performing model checkpoint. |
+| training_validation_curves.png | Dual-plot analyzing learning behavior (Loss & Accuracy). |
+| confusion_matrix.png | Visual matrix of predicted vs. actual classifications. |
+| misclassified_examples.png | Sample visualization of images the model misclassified. |
+
+The pipeline also automatically computes Precision, Recall, F1-score, and Per-class accuracy.
+
 
 ## Future Improvements
 
-Potential extensions include:
-- Data augmentation (rotation, flip, noise)
-- Learning rate scheduling
-- Transfer Learning (ResNet, EfficientNet)
-- Grad-CAM visualization to interpret model decisions
-- Hyperparameter tuning (batch size, CNN depth)
+While current development focuses on ResNet integration and hyperparameter tuning, future iterations of this project may explore:
+
+- Deployment as a lightweight web application for real-time inference.
+
+- Exploring Vision Transformers (ViT) as an alternative to convolution-based architectures.
 
 ## Authors
 
-John Wheeler, Heriberto Rosa, Linh Luong
+John Wheeler, Heriberto Rosa, Linh Luong (2025)
+John Wheeler, Heriberto Rosa, Brooklyn Hunt (2026)

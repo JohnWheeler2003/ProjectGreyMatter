@@ -11,9 +11,8 @@ $GeneralReqs = @("matplotlib", "seaborn", "scikit-learn", "numpy", "pandas")
 
 function Show-Help {
     Write-Host "Windows PowerShell Script for ProjectGreyMatter" -ForegroundColor Cyan
-    Write-Host "Usage: .\manage.ps1 [command]"
     Write-Host "  all        : Create virtual environment and install dependencies"
-    Write-Host "  run        : Run classification.py (auto-checks missing dependencies)"
+    Write-Host "  run        : Run train.py (auto-checks missing dependencies)"
     Write-Host "  clean      : Remove __pycache__, .pyc files, and generated outputs"
     Write-Host "  clean-env  : Remove the entire virtual environment '$Venv'"
     Write-Host "  rebuild    : Clean environment + re-create virtual environment + install dependencies"
