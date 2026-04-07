@@ -2,78 +2,101 @@ param (
     [string]$Target = "all"
 )
 
-$Venv = "brain"
-$Python = "$Venv\Scripts\python.exe"
-$Pip = "$Venv\Scripts\pip.exe"
+# --- Configuration ---
+$Venv        = "brain"
+$Python      = "$Venv\Scripts\python.exe"
+$Pip         = "$Venv\Scripts\pip.exe"
+$GeneralReqs = @("matplotlib", "seaborn", "scikit-learn", "numpy", "pandas", "kagglehub")
+$DataFolder  = "BrainTumorImages" # Change this to your actual dataset directory name
 
-# General packages (Excluding PyTorch, which needs a special URL)
-$GeneralReqs = @("matplotlib", "seaborn", "scikit-learn", "numpy", "pandas")
+# --- Core Functions ---
 
 function Show-Help {
-    Write-Host "Windows PowerShell Script for ProjectGreyMatter" -ForegroundColor Cyan
-    Write-Host "  all        : Create virtual environment and install dependencies"
-    Write-Host "  run        : Run train.py (auto-checks missing dependencies)"
-    Write-Host "  clean      : Remove __pycache__, .pyc files, and generated outputs"
-    Write-Host "  clean-env  : Remove the entire virtual environment '$Venv'"
-    Write-Host "  rebuild    : Clean environment + re-create virtual environment + install dependencies"
+    Write-Host "`nWindows PowerShell Script for ProjectGreyMatter" -ForegroundColor Cyan
+    $Table = @(
+        @{ Target = "all";       Desc = "Full setup: Venv, Deps, and Dataset" }
+        @{ Target = "setup";     Desc = "Download and prepare the dataset" }
+        @{ Target = "run";       Desc = "Run train.py (auto-checks deps and data)" }
+        @{ Target = "clean";     Desc = "Remove temp files and outputs" }
+        @{ Target = "rebuild";   Desc = "Fresh wipe and reinstall of everything" }
+    )
+    $Table | Format-Table -AutoSize
 }
 
 function Setup-Venv {
     if (-not (Test-Path $Venv)) {
-        Write-Host "Creating virtual environment: $Venv..." -ForegroundColor Yellow
+        Write-Host "--> Creating virtual environment: $Venv..." -ForegroundColor Yellow
         python -m venv $Venv
         & $Python -m pip install --upgrade pip
-        Write-Host "Virtual environment created." -ForegroundColor Green
     }
 }
 
 function Install-Deps {
     Setup-Venv
     
-    Write-Host "Installing/Verifying Intel XPU PyTorch..." -ForegroundColor Yellow
-    # We install this separately to ensure you get the XPU wheels, not the default ones!
-    & $Pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu
+    # Check for Intel Hardware
+    $intelMatch = Get-CimInstance Win32_VideoController, Win32_PnPEntity | 
+                  Where-Object { $_.Name -match "Arc|Core.*Ultra|Data Center GPU|NPU|AI Boost" }
 
-    Write-Host "Installing/Verifying general dependencies..." -ForegroundColor Yellow
-    foreach ($pkg in $GeneralReqs) {
-        & $Pip install $pkg
+    if ($intelMatch) {
+        Write-Host "--> Intel XPU detected. Installing optimized PyTorch..." -ForegroundColor Cyan
+        & $Pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu
+    } else {
+        Write-Host "--> No Intel XPU detected. Installing standard PyTorch..." -ForegroundColor Cyan
+        & $Pip install torch torchvision torchaudio
     }
-    Write-Host "Dependencies verified." -ForegroundColor Green
+
+    Write-Host "--> Installing general dependencies..." -ForegroundColor Yellow
+    foreach ($pkg in $GeneralReqs) { & $Pip install $pkg }
+}
+
+function Invoke-SetupDataset {
+    if (-not (Test-Path $Python)) { Install-Deps }
+    
+    Write-Host "--> Preparing dataset via setup_dataset.py..." -ForegroundColor Yellow
+    & $Python setup_dataset.py
+    Write-Host "--> Dataset ready." -ForegroundColor Green
 }
 
 function Run-Project {
-    Install-Deps
-    Write-Host "Running train.py..." -ForegroundColor Yellow
+    # Sequence Check: Env -> Deps -> Data -> Run
+    if (-not (Test-Path $Python)) { Install-Deps }
+    
+    if (-not (Test-Path $DataFolder)) {
+        Write-Host "--> Dataset missing!" -ForegroundColor Red
+        Invoke-SetupDataset
+    }
+
+    Write-Host "--> Launching Training..." -ForegroundColor Cyan
     & $Python train.py
 }
 
+# --- Cleanup Logic ---
+
 function Clean-Files {
-    Write-Host "Cleaning up temporary and generated files..." -ForegroundColor Yellow
-    
-    # Remove pycache directories
-    Get-ChildItem -Path . -Include __pycache__ -Recurse -Directory -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
-    
-    # Remove specific file extensions
-    Get-ChildItem -Path . -Include *.pyc, *.pyo, .DS_Store, *.png, *.pth -Recurse -File -ErrorAction SilentlyContinue | Remove-Item -Force
-    
-    Write-Host "Cleanup complete." -ForegroundColor Green
+    Write-Host "--> Cleaning temporary files..." -ForegroundColor Yellow
+    $Targets = @("__pycache__", "*.pyc", "*.pyo", "*.pth", "*.png")
+    foreach ($T in $Targets) {
+        Get-ChildItem -Path . -Include $T -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+    }
 }
 
 function Clean-Env {
-    Write-Host "Removing virtual environment '$Venv'..." -ForegroundColor Yellow
-    if (Test-Path $Venv) {
-        Remove-Item -Path $Venv -Recurse -Force
+    if (Test-Path $Venv) { 
+        Write-Host "--> Removing $Venv..." -ForegroundColor Red
+        Remove-Item -Path $Venv -Recurse -Force 
     }
-    Write-Host "Virtual environment removed." -ForegroundColor Green
 }
 
-# Makefile-like target routing
+# --- Target Routing ---
+
 switch ($Target) {
-    "all"       { Install-Deps }
+    "all"       { Install-Deps; Invoke-SetupDataset }
+    "setup"     { Invoke-SetupDataset }
     "run"       { Run-Project }
     "clean"     { Clean-Files }
     "clean-env" { Clean-Env }
-    "rebuild"   { Clean-Env; Install-Deps }
+    "rebuild"   { Clean-Env; Install-Deps; Invoke-SetupDataset }
     "help"      { Show-Help }
     default     { Write-Host "Unknown target: $Target" -ForegroundColor Red; Show-Help }
 }

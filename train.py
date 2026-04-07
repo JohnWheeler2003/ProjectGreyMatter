@@ -15,11 +15,14 @@ def train_model():
     model = BrainTumorCNN().to(config.DEVICE)
     criterion = nn.CrossEntropyLoss()
     
-    # FIX 1: Changed Adam to AdamW
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.LEARNING_RATE, weight_decay=0.01)
     
-    # FIX 2: Changed ReduceLROnPlateau to StepLR
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer,
+            max_lr=config.LEARNING_RATE, # Reaches 0.001 at its peak
+            steps_per_epoch=len(train_loader),
+            epochs=config.NUM_EPOCHS
+        )
 
     # Tracking metrics
     train_losses, val_losses, train_accuracies, val_accuracies = [], [], [], []
@@ -29,7 +32,7 @@ def train_model():
         print(f"\nEpoch {epoch+1}/{config.NUM_EPOCHS}")
         print("-" * 30)
 
-        # --- Training Phase ---
+        # Training Phase 
         model.train()
         running_loss, correct, total = 0.0, 0, 0
 
@@ -41,7 +44,11 @@ def train_model():
             loss = criterion(outputs, labels)
             
             loss.backward()
+
+            torch.nn.utils.clip_grad_norm_(model.parameters(),max_norm=1.0)
             optimizer.step()
+
+            scheduler.step()
 
             running_loss += loss.item() * images.size(0)
             _, predicted = torch.max(outputs, 1)
@@ -55,7 +62,7 @@ def train_model():
 
         print(f"Training Loss: {epoch_train_loss:.4f} | Accuracy: {epoch_train_acc*100:.2f}%")
 
-        # --- Validation Phase ---
+        # Validation Phase
         model.eval()
         val_loss, val_correct, val_total = 0.0, 0, 0
 
@@ -77,8 +84,6 @@ def train_model():
 
         print(f"Validation Loss: {epoch_val_loss:.4f} | Accuracy: {epoch_val_acc*100:.2f}%")
         
-        # Step the scheduler (perfectly done here)
-        scheduler.step()
         
         # Check current learning rate (optional, helps see when it drops)
         current_lr = optimizer.param_groups[0]['lr']
