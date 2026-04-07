@@ -29,7 +29,7 @@ CHECKPOINT_PATH = "best_brain_tumor_cnn.pth"
 
 # Hyperparameters
 BATCH_SIZE = 32
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.0005
 NUM_EPOCHS = 20
 IMAGE_SIZE = 128
 

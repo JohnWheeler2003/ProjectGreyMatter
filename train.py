@@ -19,9 +19,11 @@ def train_model():
     
     scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer,
-            max_lr=config.LEARNING_RATE, # Reaches 0.001 at its peak
+            max_lr=config.LEARNING_RATE,
             steps_per_epoch=len(train_loader),
-            epochs=config.NUM_EPOCHS
+            epochs=config.NUM_EPOCHS,
+            pct_start=0.5,           # Peak happens halfway through training (Epoch 10)
+            div_factor=50.0
         )
 
     # Tracking metrics

@@ -34,12 +34,22 @@ function Setup-Venv {
 function Install-Deps {
     Setup-Venv
     
-    # Check for Intel Hardware
-    $intelMatch = Get-CimInstance Win32_VideoController, Win32_PnPEntity | 
-                  Where-Object { $_.Name -match "Arc|Core.*Ultra|Data Center GPU|NPU|AI Boost" }
+    Write-Host "--> Checking for Intel Hardware (GPU/NPU)..." -ForegroundColor Yellow
+
+    # Force results into arrays using @() to prevent "op_Addition" errors
+    $videoCards = @(Get-CimInstance Win32_VideoController)
+    $pnpEntities = @(Get-CimInstance Win32_PnPEntity | Where-Object { $_.Name -match "Intel|NPU|AI Boost" })
+    
+    # Combine the arrays
+    $combinedHardware = $videoCards + $pnpEntities
+
+    $intelMatch = $combinedHardware | Where-Object { $_.Name -match "Arc|Core.*Ultra|Data Center GPU|NPU|AI Boost" }
 
     if ($intelMatch) {
-        Write-Host "--> Intel XPU detected. Installing optimized PyTorch..." -ForegroundColor Cyan
+        # Select-Object -Unique prevents double-listing if a device shows up in both queries
+        $deviceName = ($intelMatch.Name | Select-Object -Unique) -join ', '
+        Write-Host "--> Intel XPU detected: $deviceName" -ForegroundColor Cyan
+        Write-Host "--> Installing Intel-optimized PyTorch..." -ForegroundColor Cyan
         & $Pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu
     } else {
         Write-Host "--> No Intel XPU detected. Installing standard PyTorch..." -ForegroundColor Cyan
@@ -53,7 +63,16 @@ function Install-Deps {
 function Invoke-SetupDataset {
     if (-not (Test-Path $Python)) { Install-Deps }
     
-    Write-Host "--> Preparing dataset via setup_dataset.py..." -ForegroundColor Yellow
+    # Check if folder exists AND has files in it
+    if (Test-Path $DataFolder) {
+        $files = Get-ChildItem -Path $DataFolder -Recurse -File | Select-Object -First 1
+        if ($null -ne $files) {
+            Write-Host "--> Dataset already exists in $DataFolder. Skipping download." -ForegroundColor Green
+            return
+        }
+    }    
+
+    Write-Host "--> Dataset missing or empty. Preparing dataset via setup_dataset.py..." -ForegroundColor Yellow
     & $Python setup_dataset.py
     Write-Host "--> Dataset ready." -ForegroundColor Green
 }
@@ -69,6 +88,15 @@ function Run-Project {
 
     Write-Host "--> Launching Training..." -ForegroundColor Cyan
     & $Python train.py
+
+    # Error Check
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host " [!] Training failed with exit code $LASTEXITCODE. Aborting evaluation." -ForegroundColor Red
+        return # Exits the function immediately
+    }
+
+    Write-Host "--> Launching Evaluation..." -ForegroundColor Cyan
+    & $Python evaluate.py
 }
 
 # --- Cleanup Logic ---
