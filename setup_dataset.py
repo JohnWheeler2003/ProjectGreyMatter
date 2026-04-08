@@ -20,7 +20,7 @@ def setup_dataset():
     kaggle_train_dir = kaggle_path / "Training"
     kaggle_test_dir = kaggle_path / "Testing"
 
-    # Define our new local project directories
+    # Define new local project directories
     local_train_dir = LOCAL_BASE_DIR / "Training"
     local_val_dir = LOCAL_BASE_DIR / "Validation"
     local_test_dir = LOCAL_BASE_DIR / "Testing"
@@ -32,7 +32,7 @@ def setup_dataset():
             os.makedirs(split_dir / class_name, exist_ok=True)
 
     print("Splitting and copying Training and Validation sets...")
-    random.seed(SEED) # Ensures the 85/15 split is the exact same if you run this twice
+    random.seed(SEED) # Ensures the 85/15 split is the exact same if run this twice
 
     for class_name in CLASSES:
         class_train_dir = kaggle_train_dir / class_name

@@ -22,7 +22,7 @@ def train_model():
             max_lr=config.LEARNING_RATE,
             steps_per_epoch=len(train_loader),
             epochs=config.NUM_EPOCHS,
-            pct_start=0.5,           # Peak happens halfway through training (Epoch 10)
+            pct_start=0.5,
             div_factor=50.0
         )
 

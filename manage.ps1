@@ -2,14 +2,14 @@ param (
     [string]$Target = "all"
 )
 
-# --- Configuration ---
+# Configuration 
 $Venv        = "brain"
 $Python      = "$Venv\Scripts\python.exe"
 $Pip         = "$Venv\Scripts\pip.exe"
 $GeneralReqs = @("matplotlib", "seaborn", "scikit-learn", "numpy", "pandas", "kagglehub")
-$DataFolder  = "BrainTumorImages" # Change this to your actual dataset directory name
+$DataFolder  = "BrainTumorImages"
 
-# --- Core Functions ---
+# Core Functions
 
 function Show-Help {
     Write-Host "`nWindows PowerShell Script for ProjectGreyMatter" -ForegroundColor Cyan
@@ -34,26 +34,37 @@ function Setup-Venv {
 function Install-Deps {
     Setup-Venv
     
-    Write-Host "--> Checking for Intel Hardware (GPU/NPU)..." -ForegroundColor Yellow
+    Write-Host "--> Checking hardware architecture..." -ForegroundColor Yellow
 
-    # Force results into arrays using @() to prevent "op_Addition" errors
+    # 1. Grab all video controllers
     $videoCards = @(Get-CimInstance Win32_VideoController)
-    $pnpEntities = @(Get-CimInstance Win32_PnPEntity | Where-Object { $_.Name -match "Intel|NPU|AI Boost" })
-    
-    # Combine the arrays
-    $combinedHardware = $videoCards + $pnpEntities
 
-    $intelMatch = $combinedHardware | Where-Object { $_.Name -match "Arc|Core.*Ultra|Data Center GPU|NPU|AI Boost" }
+    # 2. Check for NVIDIA first (Highest Priority)
+    $nvidiaMatch = $videoCards | Where-Object { $_.Name -match "NVIDIA" }
 
-    if ($intelMatch) {
-        # Select-Object -Unique prevents double-listing if a device shows up in both queries
-        $deviceName = ($intelMatch.Name | Select-Object -Unique) -join ', '
-        Write-Host "--> Intel XPU detected: $deviceName" -ForegroundColor Cyan
-        Write-Host "--> Installing Intel-optimized PyTorch..." -ForegroundColor Cyan
-        & $Pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu
-    } else {
-        Write-Host "--> No Intel XPU detected. Installing standard PyTorch..." -ForegroundColor Cyan
+    if ($nvidiaMatch) {
+        $deviceName = ($nvidiaMatch.Name | Select-Object -Unique) -join ', '
+        Write-Host "--> NVIDIA GPU detected: $deviceName" -ForegroundColor Green
+        Write-Host "--> Installing standard PyTorch (Includes CUDA support)..." -ForegroundColor Cyan
         & $Pip install torch torchvision torchaudio
+    } 
+    else {
+        # 3. If no NVIDIA, check for Intel XPU hardware
+        $pnpEntities = @(Get-CimInstance Win32_PnPEntity | Where-Object { $_.Name -match "Intel|NPU|AI Boost" })
+        $combinedHardware = $videoCards + $pnpEntities
+        
+        # Using word boundaries (\b) around Arc to prevent matching things like "Architecture" or "Audio Return Channel (ARC)"
+        $intelMatch = $combinedHardware | Where-Object { $_.Name -match "\bArc\b|Core.*Ultra|Data Center GPU|NPU|AI Boost" }
+
+        if ($intelMatch) {
+            $deviceName = ($intelMatch.Name | Select-Object -Unique) -join ', '
+            Write-Host "--> Intel XPU detected: $deviceName" -ForegroundColor Cyan
+            Write-Host "--> Installing Intel-optimized PyTorch..." -ForegroundColor Cyan
+            & $Pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu
+        } else {
+            Write-Host "--> No specialized GPU detected. Installing standard CPU PyTorch..." -ForegroundColor Cyan
+            & $Pip install torch torchvision torchaudio
+        }
     }
 
     Write-Host "--> Installing general dependencies..." -ForegroundColor Yellow
@@ -99,7 +110,7 @@ function Run-Project {
     & $Python evaluate.py
 }
 
-# --- Cleanup Logic ---
+# Cleanup Logic
 
 function Clean-Files {
     Write-Host "--> Cleaning temporary files..." -ForegroundColor Yellow
@@ -116,7 +127,7 @@ function Clean-Env {
     }
 }
 
-# --- Target Routing ---
+# Target Routing
 
 switch ($Target) {
     "all"       { Install-Deps; Invoke-SetupDataset }
