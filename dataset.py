@@ -8,6 +8,7 @@ def get_dataloaders():
     train_transform = transforms.Compose([
         transforms.Grayscale(num_output_channels=1),
         transforms.Resize((config.IMAGE_SIZE, config.IMAGE_SIZE)),
+        transforms.RandomAffine(degrees=0, translate=(0.05, 0.05)),
         transforms.RandomHorizontalFlip(),
         transforms.RandomRotation(10),
         transforms.ToTensor(),

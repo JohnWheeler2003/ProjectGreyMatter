@@ -17,15 +17,16 @@ This project implements a Deep Convolutional Neural Network (CNN) using PyTorch 
 To run successfully, your dataset must be placed in a BrainTumorImages/ directory with subfolders for each split:
 ```
 ProjectGreyMatter/
-├── BrainTumorImages/        # Training, Validation, and Testing splits
-├── brain/                   # Local Virtual Environment (Git Ignored)
-├── manage.ps1               # Windows PowerShell Automation Script
-├── train.py                 # Main Entry Point (replaces classification.py)
-├── model.py                 # CNN Architecture
-├── dataset.py               # Data Loading & Transforms
-├── utils.py                 # Plotting & Helper Functions
-├── config.py                # Hyperparameters & Hardware Selection
-└── evaluate.py              # Model Evaluation & Metrics
+├── BrainTumorImages/           # Training, Validation, and Testing splits
+├── brain/                      # Local Virtual Environment
+├── manage.ps1                  # Windows PowerShell Automation Script
+├── config.py                   # Hyperparameters & Hardware Selection
+├── utils.py                    # Plotting & Helper Functions
+├── ultimate_setup_dataset.py   # Downloads, Hashes, Deduplicates, Splits Dataset
+├── dataset.py                  # Data Loading & Transforms
+├── model.py                    # CNN Architecture
+├── train.py                    # Main Entry Point
+└── evaluate.py                 # Model Evaluation & Metrics
 ```
 
 
@@ -45,7 +46,7 @@ Our custom baseline model follows a hierarchical feature extraction approach des
 
 | Layer Type | Output Channels | Kernel Size | Activation |
 | :--- | :--- | :--- | :--- |
-| Conv Block 1 | 32 | 3×3 | ReLU + BatchNorm |
+| Conv Block 1 | 32 | 7×7 | ReLU + BatchNorm |
 | Conv Block 2 | 64 | 3×3 | ReLU + BatchNorm |
 | Conv Block 3 | 128 | 3×3 | ReLU + BatchNorm |
 | Conv Block 4 | 256 | 3×3 | ReLU + BatchNorm |
@@ -58,34 +59,27 @@ Our custom baseline model follows a hierarchical feature extraction approach des
 ## Training Pipeline
 - Optimizer: AdamW (Adam with Decoupled Weight Decay) for improved regularization.
 
-- Loss Function: Cross-Entropy Loss, ideal for the 4-class categorization.
+- Loss Function: Cross-Entropy Loss
+
+- Scheduler: OneCycleLR with max_lr set to 0.0003
 
 - Hardware Acceleration: Auto-detects and utilizes the native PyTorch XPU backend (Intel Integrated/Discrete GPUs and NPUs).
 
 
 ## How to Run (Windows PowerShell)
 
-The project is fully automated using manage.ps1. If you encounter a script execution error, run Set-ExecutionPolicy RemoteSigned -Scope CurrentUser in PowerShell first.
+The project is fully automated using manage.ps1. If you encounter a script execution error, run the following command in PowerShell first:
 
-Setup & Install Dependencies Automatically creates the brain venv and installs the specialized Intel XPU PyTorch builds:
-PowerShell
+```Set-ExecutionPolicy RemoteSigned -Scope CurrentUser``` 
 
-```.\manage.ps1 all```
 
-Run Training & Evaluation Starts the pipeline using train.py:
-PowerShell
+| PowerShell Command | Description|
+| :--- | :--- |
+| ```.\manage.ps1 all``` | Install dependencies automatically based on the hardware that is present, creates the brain venv, and downloads/creates the BrainTumorImage folders and splits: | 
+| ```.\manage.ps1 run``` | Runs the full training and evaluation pipeline: |
+| ```.\manage.ps1 clean``` | Clean Temporary Files Removes __pycache__, .png plots, and .pth checkpoints: |
+| ```.\manage.ps1 rebuild``` | Full Rebuild Deletes the environment and reinstalls everything from scratch: |
 
-```.\manage.ps1 run```
-
-Clean Temporary Files Removes __pycache__, .png plots, and .pth checkpoints:
-PowerShell
-
-```.\manage.ps1 clean```
-
-Full Rebuild Deletes the environment and reinstalls everything from scratch:
-PowerShell
-
-```.\manage.ps1 rebuild```
 
 ## Evaluation & Outputs
 

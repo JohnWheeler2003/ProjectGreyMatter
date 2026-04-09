@@ -17,7 +17,7 @@ def evaluate_model():
 
     # Load Checkpoint
     if os.path.exists(config.CHECKPOINT_PATH):
-        ckpt = torch.load(config.CHECKPOINT_PATH, map_location=config.DEVICE)
+        ckpt = torch.load(config.CHECKPOINT_PATH, map_location=config.DEVICE, weights_only=True)
         model.load_state_dict(ckpt["model_state"])
         print(f"Loaded model from epoch {ckpt['epoch']}")
     else:

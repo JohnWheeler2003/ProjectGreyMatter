@@ -6,7 +6,7 @@ param (
 $Venv        = "brain"
 $Python      = "$Venv\Scripts\python.exe"
 $Pip         = "$Venv\Scripts\pip.exe"
-$GeneralReqs = @("matplotlib", "seaborn", "scikit-learn", "numpy", "pandas", "kagglehub")
+$GeneralReqs = @("matplotlib", "seaborn", "scikit-learn", "numpy", "pandas", "kagglehub", "imagehash")
 $DataFolder  = "BrainTumorImages"
 
 # Core Functions
@@ -46,7 +46,7 @@ function Install-Deps {
         $deviceName = ($nvidiaMatch.Name | Select-Object -Unique) -join ', '
         Write-Host "--> NVIDIA GPU detected: $deviceName" -ForegroundColor Green
         Write-Host "--> Installing standard PyTorch (Includes CUDA support)..." -ForegroundColor Cyan
-        & $Pip install torch torchvision torchaudio
+        & $Pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
     } 
     else {
         # 3. If no NVIDIA, check for Intel XPU hardware

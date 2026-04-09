@@ -8,9 +8,9 @@ from PIL import Image
 import imagehash
 from sklearn.model_selection import train_test_split
 
+# This script downloads the dataset, combines the sets, hashes the images, deduplicates the images, and then sorts them into their separate folders
 
 # CONFIGURATION
-
 SEED = 42 # For reproducible dataset shuffling
 CLASSES = ['glioma', 'meningioma', 'pituitary', 'notumor']
 LOCAL_BASE_DIR = Path("BrainTumorImages") # Target directory for clean data
