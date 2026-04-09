@@ -6,7 +6,7 @@ from pathlib import Path
 
 # --- Configuration ---
 VAL_SPLIT = 0.15  # 15% of the original Kaggle training data will go to validation
-SEED = 42         # For reproducible dataset shuffling
+SEED = 42 # For reproducible dataset shuffling
 CLASSES = ['glioma', 'meningioma', 'pituitary', 'notumor']
 LOCAL_BASE_DIR = Path("BrainTumorImages")
 

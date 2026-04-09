@@ -83,8 +83,8 @@ function Invoke-SetupDataset {
         }
     }    
 
-    Write-Host "--> Dataset missing or empty. Preparing dataset via setup_dataset.py..." -ForegroundColor Yellow
-    & $Python setup_dataset.py
+    Write-Host "--> Dataset missing or empty. Preparing dataset via ultimate_setup_dataset.py..." -ForegroundColor Yellow
+    & $Python ultimate_setup_dataset.py
     Write-Host "--> Dataset ready." -ForegroundColor Green
 }
 

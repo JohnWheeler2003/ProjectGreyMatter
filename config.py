@@ -29,9 +29,9 @@ CHECKPOINT_PATH = "best_brain_tumor_cnn.pth"
 
 # Hyperparameters
 BATCH_SIZE = 32
-LEARNING_RATE = 0.0005
+LEARNING_RATE = 0.0003
 NUM_EPOCHS = 20
-IMAGE_SIZE = 128
+IMAGE_SIZE = 256
 
 # Normalization parameters for 1-channel (Grayscale) images
 MEAN = (0.5,)
