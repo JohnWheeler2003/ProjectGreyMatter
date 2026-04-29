@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.models as models
 
 class BrainTumorCNN(nn.Module):
     def __init__(self):
@@ -55,3 +56,45 @@ class BrainTumorCNN(nn.Module):
         x = self.dropout(x)
         x = self.fc2(x)
         return x
+    
+
+# 2. Pre-trained ResNet50
+class PretrainedResNet(nn.Module):
+    def __init__(self, num_classes=4, grayscale=True):
+        super(PretrainedResNet, self).__init__()
+        # Load pre-trained weights
+        self.resnet = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
+        
+        # If the images are grayscale (1 channel), modify the first conv layer
+        if grayscale:
+            original_conv = self.resnet.conv1
+            self.resnet.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+            # Copy weights from one of the original RGB channels to maintain pre-training benefit
+            self.resnet.conv1.weight.data = original_conv.weight.data[:, :1, :, :]
+            
+        # Replace the final fully connected layer to output 4 classes
+        num_ftrs = self.resnet.fc.in_features
+        self.resnet.fc = nn.Linear(num_ftrs, num_classes)
+
+    def forward(self, x):
+        return self.resnet(x)
+
+# 3. Pre-trained Vision Transformer (ViT)
+class PretrainedViT(nn.Module):
+    def __init__(self, num_classes=4, grayscale=True):
+        super(PretrainedViT, self).__init__()
+        self.vit = models.vit_b_16(weights=models.ViT_B_16_Weights.IMAGENET1K_V1)
+        self.grayscale = grayscale
+        
+        num_ftrs = self.vit.heads.head.in_features
+        self.vit.heads.head = nn.Linear(num_ftrs, num_classes)
+
+    def forward(self, x):
+        if self.grayscale:
+            x = x.repeat(1, 3, 1, 1) # Convert [B, 1, H, W] to [B, 3, H, W]
+            
+        # FORCE RESIZE TO 224x224 FOR ViT COMPATIBILITY
+        if x.shape[-1] != 224 or x.shape[-2] != 224:
+            x = F.interpolate(x, size=(224, 224), mode='bilinear', align_corners=False)
+            
+        return self.vit(x)

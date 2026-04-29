@@ -1,18 +1,27 @@
+import argparse
 import torch
 import torch.nn as nn
 import config
 from dataset import get_dataloaders
-from model import BrainTumorCNN
+from model import BrainTumorCNN, PretrainedResNet, PretrainedViT
 from utils import plot_training_curves
 
-def train_model():
+def train_model(model_name):
     print(f"\nUsing device: {config.DEVICE}")
+    print(f"Training Model: {model_name}")
 
     # Load Data
     train_loader, val_loader, _, _ = get_dataloaders()
 
     # Initialize Model, Loss, Optimizer
-    model = BrainTumorCNN().to(config.DEVICE)
+    if model_name == "custom_cnn":
+        model = BrainTumorCNN().to(config.DEVICE)
+    elif model_name == "resnet":
+        model = PretrainedResNet(grayscale=True).to(config.DEVICE)
+    elif model_name == "vit":
+        model = PretrainedViT(grayscale=True).to(config.DEVICE)
+    else:
+        raise ValueError("Invalid model name selected.")
     criterion = nn.CrossEntropyLoss()
     
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.LEARNING_RATE, weight_decay=0.01)
@@ -94,13 +103,17 @@ def train_model():
         # Save Best Model
         if epoch_val_acc > best_val_acc:
             best_val_acc = epoch_val_acc
+            
+            # Create a dynamic save path so models don't overwrite each other
+            save_path = f"{model_name}_best_model.pth" 
+            
             torch.save({
                 "epoch": epoch + 1,
                 "model_state": model.state_dict(),
                 "optimizer_state": optimizer.state_dict(),
                 "val_accuracy": best_val_acc,
-            }, config.CHECKPOINT_PATH)
-            print(f"--> New best model saved! (Accuracy: {best_val_acc*100:.2f}%)")
+            }, save_path) # <-- Use dynamic path here
+            print(f"--> New best model saved as {save_path}! (Accuracy: {best_val_acc*100:.2f}%)")
 
     print("\nTraining complete!")
     
@@ -109,4 +122,10 @@ def train_model():
     print("Saved training curves to training_validation_curves.png")
 
 if __name__ == "__main__":
-    train_model()
+    parser = argparse.ArgumentParser(description="Train Brain Tumor Classification Models")
+    parser.add_argument("--model", type=str, default="custom_cnn", 
+                        choices=["custom_cnn", "resnet", "vit"], 
+                        help="Name of the model to train")
+    args = parser.parse_args()
+    
+    train_model(args.model)

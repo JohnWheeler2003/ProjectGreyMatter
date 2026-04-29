@@ -1,27 +1,40 @@
+import argparse
 import os
 import torch
 import numpy as np
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 import config
 from dataset import get_dataloaders
-from model import BrainTumorCNN
+from model import BrainTumorCNN, PretrainedResNet, PretrainedViT
 from utils import plot_confusion_matrix, visualize_misclassified
 
-def evaluate_model():
+def evaluate_model(model_name):
+    print(f"Evaluation Model: {model_name}")
+    
     # Load Data
     _, _, test_loader, test_data = get_dataloaders()
     class_names = test_data.classes
 
     # Initialize Model
-    model = BrainTumorCNN().to(config.DEVICE)
+    if model_name == "custom_cnn":
+        model = BrainTumorCNN().to(config.DEVICE)
+    elif model_name == "resnet":
+        model = PretrainedResNet(grayscale=True).to(config.DEVICE)
+    elif model_name == "vit":
+        model = PretrainedViT(grayscale=True).to(config.DEVICE)
+    else:
+        raise ValueError("Invalid model name selected.")
+
+    # Dynamically match the save path from train.py
+    checkpoint_path = f"{model_name}_best_model.pth"
 
     # Load Checkpoint
-    if os.path.exists(config.CHECKPOINT_PATH):
-        ckpt = torch.load(config.CHECKPOINT_PATH, map_location=config.DEVICE, weights_only=True)
+    if os.path.exists(checkpoint_path):
+        ckpt = torch.load(checkpoint_path, map_location=config.DEVICE, weights_only=True)
         model.load_state_dict(ckpt["model_state"])
         print(f"Loaded model from epoch {ckpt['epoch']}")
     else:
-        print(f"No checkpoint found at '{config.CHECKPOINT_PATH}'. Exiting.")
+        print(f"No checkpoint found at '{checkpoint_path}'. Exiting.")
         return
 
     model.eval()
@@ -59,4 +72,10 @@ def evaluate_model():
     print("Saved misclassified examples to misclassified_examples.png")
 
 if __name__ == "__main__":
-    evaluate_model()
+    parser = argparse.ArgumentParser(description="Evaluate Brain Tumor Classification Models")
+    parser.add_argument("--model", type=str, default="custom_cnn", 
+                        choices=["custom_cnn", "resnet", "vit"], 
+                        help="Name of the model to evaluate")
+    args = parser.parse_args()
+    
+    evaluate_model(args.model)
