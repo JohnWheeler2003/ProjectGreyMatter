@@ -25,12 +25,11 @@ else:
 TRAIN_DIR = "BrainTumorImages/Training"
 VAL_DIR = "BrainTumorImages/Validation"
 TEST_DIR = "BrainTumorImages/Testing"
-CHECKPOINT_PATH = "best_brain_tumor_cnn.pth"
 
 # Hyperparameters
 BATCH_SIZE = 32
 LEARNING_RATE = 0.0003
-NUM_EPOCHS = 40
+NUM_EPOCHS = 100
 IMAGE_SIZE = 256
 
 # Normalization parameters for 1-channel (Grayscale) images

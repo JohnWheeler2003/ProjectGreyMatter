@@ -39,6 +39,10 @@ def train_model(model_name):
     train_losses, val_losses, train_accuracies, val_accuracies = [], [], [], []
     best_val_acc = 0.0
 
+    # Early stopping variables
+    patience = 7 # How many epochs to wait before giving up
+    patience_counter = 0
+
     for epoch in range(config.NUM_EPOCHS):
         print(f"\nEpoch {epoch+1}/{config.NUM_EPOCHS}")
         print("-" * 30)
@@ -114,6 +118,13 @@ def train_model(model_name):
                 "val_accuracy": best_val_acc,
             }, save_path) # <-- Use dynamic path here
             print(f"--> New best model saved as {save_path}! (Accuracy: {best_val_acc*100:.2f}%)")
+        else:
+            patience_counter += 1
+            print(f"No improvement in validation accuracy. Early stopping counter: {patience_counter}/{patience}")
+
+            if patience_counter >= patience:
+                print(f"\nEarly stopping triggered! Training halted early at epoch {epoch+1}.")
+                break 
 
     print("\nTraining complete!")
     
