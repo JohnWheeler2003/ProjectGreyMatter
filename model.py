@@ -93,8 +93,4 @@ class PretrainedViT(nn.Module):
         if self.grayscale:
             x = x.repeat(1, 3, 1, 1) # Convert [B, 1, H, W] to [B, 3, H, W]
             
-        # FORCE RESIZE TO 224x224 FOR ViT COMPATIBILITY
-        if x.shape[-1] != 224 or x.shape[-2] != 224:
-            x = F.interpolate(x, size=(224, 224), mode='bilinear', align_corners=False)
-            
         return self.vit(x)

@@ -3,11 +3,13 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 import config
 
-def get_dataloaders():
+def get_dataloaders(model_name):
+    target_size = 224 if model_name == "vit" else config.IMAGE_SIZE
+
     # Training transforms with Data Augmentation & Grayscale
     train_transform = transforms.Compose([
         transforms.Grayscale(num_output_channels=1),
-        transforms.Resize((config.IMAGE_SIZE, config.IMAGE_SIZE)),
+        transforms.Resize((target_size, target_size)),
         transforms.RandomAffine(degrees=0, translate=(0.05, 0.05)),
         transforms.RandomHorizontalFlip(),
         transforms.RandomRotation(10),
@@ -18,7 +20,7 @@ def get_dataloaders():
     # Validation/Testing transforms (No Augmentation, but Grayscale)
     eval_transform = transforms.Compose([
         transforms.Grayscale(num_output_channels=1),
-        transforms.Resize((config.IMAGE_SIZE, config.IMAGE_SIZE)),
+        transforms.Resize((target_size, target_size)),
         transforms.ToTensor(),
         transforms.Normalize(config.MEAN, config.STD)
     ])

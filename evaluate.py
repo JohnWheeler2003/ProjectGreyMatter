@@ -12,7 +12,7 @@ def evaluate_model(model_name):
     print(f"Evaluation Model: {model_name}")
     
     # Load Data
-    _, _, test_loader, test_data = get_dataloaders()
+    _, _, test_loader, test_data = get_dataloaders(model_name)
     class_names = test_data.classes
 
     # Initialize Model
@@ -47,7 +47,6 @@ def evaluate_model(model_name):
         for images, labels in test_loader:
             images = images.to(config.DEVICE)
             outputs = model(images)
-            probs = softmax(outputs)
             preds = torch.argmax(probs, dim=1)
 
             all_preds.extend(preds.cpu().numpy().tolist())
