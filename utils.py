@@ -5,6 +5,8 @@ import seaborn as sns
 import numpy as np
 import torch
 from torchvision import transforms
+import torch.nn as nn
+import torch.nn.functional as F
 
 def plot_training_curves(train_losses, val_losses, train_accuracies, val_accuracies, save_path):
     plt.figure(figsize=(10,4))
@@ -86,3 +88,43 @@ def visualize_misclassified(all_preds, all_labels, test_data, class_names, save_
     plt.tight_layout()
     plt.savefig(save_path)
     plt.close()
+
+class FocalLoss(nn.Module):
+    """
+    Focal Loss for imbalanced datasets.
+    FL(p_t) = -alpha_t * (1 - p_t)^gamma * log(p_t)
+    """
+    def __init__(self, alpha=None, gamma=2.0, reduction='mean'):
+        super(FocalLoss, self).__init__()
+        # alpha should be a 1D tensor of class weights
+        self.alpha = alpha  
+        self.gamma = gamma
+        self.reduction = reduction
+
+    def forward(self, inputs, targets):
+        # 1. Compute standard Cross-Entropy Loss (unweighted, unreduced)
+        # This calculates -log(p_t) for each sample in the batch.
+        ce_loss = F.cross_entropy(inputs, targets, reduction='none')
+        
+        # 2. Extract p_t (the model's predicted probability for the TRUE class)
+        # Since ce_loss = -log(p_t), we can get p_t via exp(-ce_loss)
+        pt = torch.exp(-ce_loss)
+        
+        # 3. Calculate the Focal Loss modulating factor: (1 - p_t)^gamma
+        # If p_t is high (easy example), this factor becomes tiny.
+        # If p_t is low (hard example), this factor stays near 1.
+        focal_loss = ((1 - pt) ** self.gamma) * ce_loss
+        
+        # 4. Apply the dynamic class weights (alpha)
+        if self.alpha is not None:
+            # Gather the correct class weight for each sample in the batch
+            alpha_t = self.alpha.gather(0, targets)
+            focal_loss = focal_loss * alpha_t
+            
+        # 5. Apply reduction
+        if self.reduction == 'mean':
+            return focal_loss.mean()
+        elif self.reduction == 'sum':
+            return focal_loss.sum()
+        else:
+            return focal_loss

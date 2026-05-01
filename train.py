@@ -4,7 +4,7 @@ import torch.nn as nn
 import config
 from dataset import get_dataloaders
 from model import BrainTumorCNN, PretrainedResNet, PretrainedViT
-from utils import plot_training_curves
+from utils import plot_training_curves, FocalLoss
 
 def train_model(model_name):
     print(f"\nUsing device: {config.DEVICE}")
@@ -43,8 +43,9 @@ def train_model(model_name):
     
     print(f"Dynamic Class Weights Applied: {class_weights}")
 
-    # Pass the weights into the CrossEntropyLoss
-    criterion = nn.CrossEntropyLoss(weight=weights_tensor)
+    # Pass the weights into the custom FocalLoss as the alpha parameter, and set gamma to the industry standard 2.0.
+    criterion = FocalLoss(alpha=weights_tensor, gamma=2.0)
+    print("Loss Function: Focal Loss (Gamma=2.0)")
 
     # DYNAMIC LEARNING RATE SETUP
     adjusted_lr = 1e-4 if model_name in ["resnet", "vit"] else config.LEARNING_RATE
