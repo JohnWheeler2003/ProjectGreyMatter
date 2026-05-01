@@ -58,7 +58,7 @@ def train_model(model_name):
             max_lr=adjusted_lr,
             steps_per_epoch=len(train_loader),
             epochs=max_epochs,
-            pct_start=0.2,
+            pct_start=0.15,
             div_factor=50.0
         )
     else:

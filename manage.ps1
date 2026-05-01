@@ -7,7 +7,7 @@ param (
 $Venv        = "brain"
 $Python      = "$Venv\Scripts\python.exe"
 $Pip         = "$Venv\Scripts\pip.exe"
-$GeneralReqs = @("matplotlib", "seaborn", "scikit-learn", "numpy", "pandas", "kagglehub", "imagehash")
+$GeneralReqs = @("matplotlib", "seaborn", "scikit-learn", "numpy", "pandas", "kagglehub", "imagehash", "grad-cam")
 $DataFolder  = "BrainTumorImages"
 
 
@@ -129,6 +129,9 @@ function Run-Project {
 
         Write-Host "--> Launching Evaluation..." -ForegroundColor Cyan
         & $Python evaluate.py --model $m
+
+        Write-Host "--> Launching Grad-CAM Visualizations..." -ForegroundColor Cyan
+        & $Python run_gradcam.py --model $m
     }
 }
 
