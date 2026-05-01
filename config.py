@@ -1,6 +1,6 @@
 import torch
 
-# Device Configuration
+# DEVICE CONFIGURATION
 if torch.cuda.is_available():
     # NVIDIA Graphics Cards
     DEVICE = torch.device("cuda")
@@ -21,17 +21,17 @@ else:
     DEVICE = torch.device("cpu")
     print("Hardware selected: CPU")
 
-# Paths
+# PATHS
 TRAIN_DIR = "BrainTumorImages/Training"
 VAL_DIR = "BrainTumorImages/Validation"
 TEST_DIR = "BrainTumorImages/Testing"
 
-# Hyperparameters
+# HYPERPARAMETERS
 BATCH_SIZE = 32
-LEARNING_RATE = 0.0003
+LEARNING_RATE = 0.0002
 NUM_EPOCHS = 100
 IMAGE_SIZE = 256
 
-# Normalization parameters for 1-channel (Grayscale) images
+# NORMALIZATION PARAMETERS FOR 1-CHANNEL (GRAYSCALE) IMAGES
 MEAN = (0.5,)
 STD = (0.5,)

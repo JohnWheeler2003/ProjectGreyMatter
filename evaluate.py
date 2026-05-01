@@ -11,11 +11,11 @@ from utils import plot_confusion_matrix, visualize_misclassified
 def evaluate_model(model_name):
     print(f"Evaluation Model: {model_name}")
     
-    # Load Data
+    # LOAD DATA
     _, _, test_loader, test_data = get_dataloaders(model_name)
     class_names = test_data.classes
 
-    # Initialize Model
+    # INITIALIZE MODEL
     if model_name == "custom_cnn":
         model = BrainTumorCNN().to(config.DEVICE)
     elif model_name == "resnet":
@@ -25,10 +25,10 @@ def evaluate_model(model_name):
     else:
         raise ValueError("Invalid model name selected.")
 
-    # Dynamically match the save path from train.py
+    # DYNAMICALLY MATCH THE SAVE PATH FROM TRAIN.PY
     checkpoint_path = f"{model_name}_best_model.pth"
 
-    # Load Checkpoint
+    # LOAD CHECKPOINT
     if os.path.exists(checkpoint_path):
         ckpt = torch.load(checkpoint_path, map_location=config.DEVICE, weights_only=True)
         model.load_state_dict(ckpt["model_state"])
@@ -47,7 +47,7 @@ def evaluate_model(model_name):
         for images, labels in test_loader:
             images = images.to(config.DEVICE)
             outputs = model(images)
-            preds = torch.argmax(probs, dim=1)
+            preds = torch.argmax(outputs, dim=1)
 
             all_preds.extend(preds.cpu().numpy().tolist())
             all_labels.extend(labels.cpu().numpy().tolist())
@@ -55,20 +55,22 @@ def evaluate_model(model_name):
     all_preds = np.array(all_preds)
     all_labels = np.array(all_labels)
 
-    # Metrics
+    # METRICS
     test_acc = accuracy_score(all_labels, all_preds)
     print(f"\nTest Accuracy: {test_acc*100:.2f}%")
     print("\nClassification Report:\n")
     print(classification_report(all_labels, all_preds, target_names=class_names, digits=4))
 
-    # Confusion Matrix
+    # CONFUSION MATRIX
+    cm_path = f"{model_name}_confusion_matrix.png"
     cm = confusion_matrix(all_labels, all_preds)
-    plot_confusion_matrix(cm, class_names, test_acc)
-    print("Saved confusion matrix to confusion_matrix.png")
+    plot_confusion_matrix(cm, class_names, test_acc, save_path=cm_path)
+    print(f"Saved confusion matrix to {cm_path}")
 
-    # Misclassified Visualizations
-    visualize_misclassified(all_preds, all_labels, test_data, class_names)
-    print("Saved misclassified examples to misclassified_examples.png")
+    # MISCLASSIFIED VISUALIZATIONS
+    misclassified_path = f"{model_name}_misclassified_examples.png"
+    visualize_misclassified(all_preds, all_labels, test_data, class_names, save_path=misclassified_path)
+    print(f"Saved misclassified examples to {misclassified_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate Brain Tumor Classification Models")

@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
 
+# 1 CUSTOM CNN
 class BrainTumorCNN(nn.Module):
     def __init__(self):
         super(BrainTumorCNN, self).__init__()
@@ -58,7 +59,7 @@ class BrainTumorCNN(nn.Module):
         return x
     
 
-# 2. Pre-trained ResNet50
+# 2. PRE-TRAINED RESNET50
 class PretrainedResNet(nn.Module):
     def __init__(self, num_classes=4, grayscale=True):
         super(PretrainedResNet, self).__init__()
@@ -79,7 +80,7 @@ class PretrainedResNet(nn.Module):
     def forward(self, x):
         return self.resnet(x)
 
-# 3. Pre-trained Vision Transformer (ViT)
+# 3. PRE-TRAINED VISION TRANSFORMER (VIT)
 class PretrainedViT(nn.Module):
     def __init__(self, num_classes=4, grayscale=True):
         super(PretrainedViT, self).__init__()

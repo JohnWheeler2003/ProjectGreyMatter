@@ -58,7 +58,7 @@ def train_model(model_name):
             max_lr=adjusted_lr,
             steps_per_epoch=len(train_loader),
             epochs=max_epochs,
-            pct_start=0.1,
+            pct_start=0.2,
             div_factor=50.0
         )
     else:
@@ -69,6 +69,8 @@ def train_model(model_name):
             factor=0.1,      
             patience=3       
         )
+
+    print(f"Scheduler Selected: {type(scheduler).__name__}")
 
     # TRACKING METRICS
     train_losses, val_losses, train_accuracies, val_accuracies = [], [], [], []
@@ -141,7 +143,7 @@ def train_model(model_name):
         if model_name in ["resnet", "vit"]:
             scheduler.step(epoch_val_loss)
 
-        # Check current learning rate (optional, helps see when it drops)
+        # Check current learning rate (Helps see when it drops)
         current_lr = optimizer.param_groups[0]['lr']
         print(f"Current Learning Rate: {current_lr}")
 
@@ -165,7 +167,7 @@ def train_model(model_name):
         # 2. EARLY STOPPING (TRACKS LOSS)
         if epoch_val_loss < best_val_loss:
             best_val_loss = epoch_val_loss
-            patience_counter = 0  # Reset counter because loss went down!
+            patience_counter = 0  # Reset patience counter
         else:
             patience_counter += 1
             print(f"No improvement in validation loss. Early stopping counter: {patience_counter}/{patience}")
@@ -177,8 +179,9 @@ def train_model(model_name):
     print("\nTraining complete!")
     
     # PLOT RESULTS
-    plot_training_curves(train_losses, val_losses, train_accuracies, val_accuracies)
-    print("Saved training curves to training_validation_curves.png")
+    curve_path = f"{model_name}_training_curves.png"
+    plot_training_curves(train_losses, val_losses, train_accuracies, val_accuracies, save_path=curve_path)
+    print(f"Saved training curves to {curve_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train Brain Tumor Classification Models")

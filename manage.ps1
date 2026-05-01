@@ -1,16 +1,18 @@
 param (
-    [string]$Target = "all"
+    [string]$Target = "all",
+    [string]$Model = "" # Options: custom_cnn, resnet, vit, all
 )
 
-# Configuration 
+# CONFIGURATION 
 $Venv        = "brain"
 $Python      = "$Venv\Scripts\python.exe"
 $Pip         = "$Venv\Scripts\pip.exe"
 $GeneralReqs = @("matplotlib", "seaborn", "scikit-learn", "numpy", "pandas", "kagglehub", "imagehash")
 $DataFolder  = "BrainTumorImages"
 
-# Core Functions
 
+
+# CORE FUNCTIONS
 function Show-Help {
     Write-Host "`nWindows PowerShell Script for ProjectGreyMatter" -ForegroundColor Cyan
     $Table = @(
@@ -89,6 +91,14 @@ function Invoke-SetupDataset {
 }
 
 function Run-Project {
+    param([string]$TargetModel)
+
+    # Prompt the user if no model was provided in the command line
+    if ([string]::IsNullOrWhiteSpace($TargetModel)) {
+        Write-Host "`nNo model specified." -ForegroundColor Yellow
+        $TargetModel = Read-Host "Which model would you like to run? [custom_cnn, resnet, vit, all]"
+    }
+
     # Sequence Check: Env -> Deps -> Data -> Run
     if (-not (Test-Path $Python)) { Install-Deps }
     
@@ -97,20 +107,34 @@ function Run-Project {
         Invoke-SetupDataset
     }
 
-    Write-Host "--> Launching Training..." -ForegroundColor Cyan
-    & $Python train.py
-
-    # Error Check
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host " [!] Training failed with exit code $LASTEXITCODE. Aborting evaluation." -ForegroundColor Red
-        return # Exits the function immediately
+    # Determine which models to run
+    $modelsToRun = @()
+    if ($TargetModel -eq "all") {
+        $modelsToRun = @("custom_cnn", "resnet", "vit")
+    } else {
+        $modelsToRun = @($TargetModel)
     }
 
-    Write-Host "--> Launching Evaluation..." -ForegroundColor Cyan
-    & $Python evaluate.py
+    # Loop through and execute
+    foreach ($m in $modelsToRun) {
+        Write-Host "--> Launching Pipeline for Model: $m" -ForegroundColor Magenta
+        Write-Host "--> Launching Training..." -ForegroundColor Cyan
+        & $Python train.py --model $m
+
+        # Error Check
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host " [!] Training failed for $m with exit code $LASTEXITCODE. Skipping evaluation." -ForegroundColor Red
+            continue 
+        }
+
+        Write-Host "--> Launching Evaluation..." -ForegroundColor Cyan
+        & $Python evaluate.py --model $m
+    }
 }
 
-# Cleanup Logic
+
+
+# CLEANUP LOGIC
 
 function Clean-Files {
     Write-Host "--> Cleaning temporary files..." -ForegroundColor Yellow
@@ -127,12 +151,12 @@ function Clean-Env {
     }
 }
 
-# Target Routing
+# TARGET ROUTING
 
 switch ($Target) {
     "all"       { Install-Deps; Invoke-SetupDataset }
     "setup"     { Invoke-SetupDataset }
-    "run"       { Run-Project }
+    "run"       { Run-Project -TargetModel $Model } 
     "clean"     { Clean-Files }
     "clean-env" { Clean-Env }
     "rebuild"   { Clean-Env; Install-Deps; Invoke-SetupDataset }

@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from torchvision import transforms
 
-def plot_training_curves(train_losses, val_losses, train_accuracies, val_accuracies, save_path="training_validation_curves.png"):
+def plot_training_curves(train_losses, val_losses, train_accuracies, val_accuracies, save_path):
     plt.figure(figsize=(10,4))
     
     plt.subplot(1,2,1)
@@ -24,7 +24,7 @@ def plot_training_curves(train_losses, val_losses, train_accuracies, val_accurac
     plt.savefig(save_path)
     plt.close()
 
-def plot_confusion_matrix(cm, class_names, test_acc, save_path="confusion_matrix.png"):
+def plot_confusion_matrix(cm, class_names, test_acc, save_path):
     plt.figure(figsize=(8,6))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=class_names, yticklabels=class_names)
     plt.xlabel("Predicted")
@@ -53,7 +53,7 @@ def unnormalize_tensor(img_tensor, mean, std):
     img = np.clip(img, 0, 1)
     return img
 
-def visualize_misclassified(all_preds, all_labels, test_data, class_names, num_to_show=8, save_path="misclassified_examples.png"):
+def visualize_misclassified(all_preds, all_labels, test_data, class_names, save_path, num_to_show=8):
     mean, std = get_normalize_params(test_data.transform)
     if mean is None or std is None:
         mean, std = (0.5,), (0.5,)
