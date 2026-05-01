@@ -1,4 +1,4 @@
-# ProjectGreyMatter II – MRI Brain Tumor Classification (PyTorch)
+# ProjectGreyMatter II – MRI Brain Tumor Classification (PyTorch) (README OUT OF DATE AS OF 4/30/26)
 ## Overview
 
 This project implements a Deep Convolutional Neural Network (CNN) using PyTorch to classify MRI brain images into one of four tumor categories: Glioma, Meningioma, Pituitary, or No Tumor. Currently, the project is expanding upon its base custom CNN architecture to integrate advanced deep learning techniques, including ResNet architectures, data augmentation, learning rate scheduling, hyperparameter tuning, and model interpretability to better visualize how the model makes decisions.
