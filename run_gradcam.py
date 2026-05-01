@@ -20,7 +20,114 @@ def vit_reshape_transform(tensor, height=14, width=14):
     result = result.transpose(2, 3).transpose(1, 2)
     return result
 
-def visualize_gradcam(model_name, num_images=4):
+def find_evaluation_cases(model, test_loader, class_names):
+    """
+    Hunts through the test_loader to find one successful and one failed 
+    prediction for each class.
+    """
+    # Dictionaries to store: class_name -> (image_tensor, predicted_class_name)
+    successes = {name: None for name in class_names}
+    failures = {name: None for name in class_names}
+    
+    model.eval()
+    
+    with torch.no_grad(): # No gradients needed just to find the images
+        for images, labels in test_loader:
+            images = images.to(config.DEVICE)
+            labels = labels.to(config.DEVICE)
+            
+            outputs = model(images)
+            preds = torch.argmax(outputs, dim=1)
+            
+            for i in range(len(labels)):
+                true_idx = labels[i].item()
+                pred_idx = preds[i].item()
+                true_class = class_names[true_idx]
+                pred_class = class_names[pred_idx]
+                
+                # Check for success
+                if true_idx == pred_idx and successes[true_class] is None:
+                    # Move tensor back to CPU to save VRAM while we hunt
+                    successes[true_class] = (images[i].cpu(), pred_class)
+                
+                # Check for failure
+                elif true_idx != pred_idx and failures[true_class] is None:
+                    failures[true_class] = (images[i].cpu(), pred_class)
+            
+            # Early stopping check: if all slots are filled, stop hunting
+            all_successes_found = all(v is not None for v in successes.values())
+            all_failures_found = all(v is not None for v in failures.values())
+            
+            if all_successes_found and all_failures_found:
+                break
+                
+    return successes, failures
+
+def plot_gradcam_grid(cases_dict, category_name, model_name, cam, mean, std):
+    """
+    Plots the Grad-CAM grid for either successes or failures.
+    """
+    # Filter out classes that didn't have a case (e.g., if there were no failures)
+    valid_cases = {k: v for k, v in cases_dict.items() if v is not None}
+    missing_cases = [k for k, v in cases_dict.items() if v is None]
+    
+    num_images = len(class_names := list(cases_dict.keys()))
+    
+    fig, axes = plt.subplots(num_images, 3, figsize=(12, 4 * num_images))
+    fig.suptitle(f"{model_name.upper()} - Grad-CAM {category_name}", fontsize=16)
+    
+    # Handle the 1D array edge case if there is only 1 class (unlikely, but safe)
+    if num_images == 1: axes = np.expand_dims(axes, axis=0)
+
+    for i, true_class in enumerate(cases_dict.keys()):
+        case = cases_dict[true_class]
+        
+        # If no image was found for this category (e.g., a perfect model has no failures)
+        if case is None:
+            for j in range(3):
+                axes[i, j].axis('off')
+            axes[i, 1].text(0.5, 0.5, f"No {category_name.lower()} found\nfor true class: {true_class}", 
+                            ha='center', va='center', fontsize=12, color='gray')
+            continue
+            
+        img_tensor, pred_class = case
+        
+        # Move back to device for Grad-CAM processing
+        img_tensor = img_tensor.to(config.DEVICE)
+        
+        # Generate CAM
+        grayscale_cam = cam(input_tensor=img_tensor.unsqueeze(0), targets=None)[0, :]
+        
+        # Prepare image for visualization
+        img_np = unnormalize_tensor(img_tensor, mean, std) 
+        img_rgb = np.repeat(img_np, 3, axis=2) 
+        cam_overlay = show_cam_on_image(img_rgb, grayscale_cam, use_rgb=True)
+
+        # Plot Original
+        axes[i, 0].imshow(img_rgb)
+        axes[i, 0].set_title(f"True: {true_class}\nPred: {pred_class}")
+        axes[i, 0].axis('off')
+
+        # Plot Heatmap
+        axes[i, 1].imshow(grayscale_cam, cmap='jet')
+        axes[i, 1].set_title("Heatmap")
+        axes[i, 1].axis('off')
+
+        # Plot Overlay
+        axes[i, 2].imshow(cam_overlay)
+        axes[i, 2].set_title("Overlay")
+        axes[i, 2].axis('off')
+
+    plt.tight_layout()
+    save_path = f"{model_name}_gradcam_{category_name.lower()}.png"
+    plt.savefig(save_path)
+    plt.close()
+    print(f"Saved {category_name} visualizations to {save_path}")
+    
+    if missing_cases:
+        print(f"  -> Note: No {category_name.lower()} found for classes: {', '.join(missing_cases)}")
+
+def visualize_gradcam(model_name):
     print(f"Running Grad-CAM for: {model_name}")
 
     # 1. LOAD DATA (Pull from the test loader)
@@ -74,69 +181,22 @@ def visualize_gradcam(model_name, num_images=4):
         reshape_transform=vit_reshape_transform if use_reshape else None
     )
 
-    # 5. FETCH BATCH AND GENERATE CAM
-    data_iter = iter(test_loader)
-    images, labels = next(data_iter)
+    # 5. HUNT AND PLOT
+    print("Hunting for evaluation cases in the test set...")
+    successes, failures = find_evaluation_cases(model, test_loader, class_names)
     
-    images = images[:num_images].to(config.DEVICE)
-    labels = labels[:num_images]
+    print("Generating Success Grids...")
+    plot_gradcam_grid(successes, "Successes", model_name, cam, mean, std)
+    
+    print("Generating Failure Grids...")
+    plot_gradcam_grid(failures, "Failures", model_name, cam, mean, std)
 
-    # Generate CAM for the predicted class
-    # (Passing targets=None automatically uses the highest scoring class)
-    grayscale_cams = cam(input_tensor=images, targets=None)
-
-    # 6. PLOT AND SAVE RESULTS
-    fig, axes = plt.subplots(num_images, 3, figsize=(12, 4 * num_images))
-    fig.suptitle(f"Grad-CAM Visualizations: {model_name.upper()}", fontsize=16)
-
-    for i in range(num_images):
-        img_tensor = images[i]
-        true_label = class_names[labels[i].item()]
-        
-        # Get Model Prediction
-        with torch.no_grad():
-            output = model(img_tensor.unsqueeze(0))
-            pred_idx = torch.argmax(output, dim=1).item()
-            pred_label = class_names[pred_idx]
-
-        # Prepare image for visualization (needs to be RGB [0,1] for overlay)
-        img_np = unnormalize_tensor(img_tensor, mean, std) # Returns [H, W, 1]
-        img_rgb = np.repeat(img_np, 3, axis=2) # Convert 1-channel to 3-channel RGB
-        
-        cam_map = grayscale_cams[i, :]
-        cam_overlay = show_cam_on_image(img_rgb, cam_map, use_rgb=True)
-
-        # Plot Original
-        ax = axes[i, 0] if num_images > 1 else axes[0]
-        ax.imshow(img_rgb)
-        ax.set_title(f"True: {true_label}\nPred: {pred_label}")
-        ax.axis('off')
-
-        # Plot Grad-CAM Heatmap Only
-        ax = axes[i, 1] if num_images > 1 else axes[1]
-        ax.imshow(cam_map, cmap='jet')
-        ax.set_title("Heatmap")
-        ax.axis('off')
-
-        # Plot Overlay
-        ax = axes[i, 2] if num_images > 1 else axes[2]
-        ax.imshow(cam_overlay)
-        ax.set_title("Grad-CAM Overlay")
-        ax.axis('off')
-
-    plt.tight_layout()
-    save_path = f"{model_name}_gradcam_results.png"
-    plt.savefig(save_path)
-    plt.close()
-    print(f"Saved Grad-CAM visualizations to {save_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run Grad-CAM on Trained Models")
     parser.add_argument("--model", type=str, default="custom_cnn", 
                         choices=["custom_cnn", "resnet", "vit"], 
                         help="Name of the model to evaluate")
-    parser.add_argument("--num_images", type=int, default=4,
-                        help="Number of test images to visualize")
     args = parser.parse_args()
-    
-    visualize_gradcam(args.model, args.num_images)
+
+    visualize_gradcam(args.model)
