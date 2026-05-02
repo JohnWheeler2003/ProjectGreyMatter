@@ -1,6 +1,6 @@
 param (
     [string]$Target = "all",
-    [string]$Model = "" # Options: custom_cnn, resnet, vit, all
+    [string]$Model = "" # Options: custom_cnn, resnet, vit, ensemble, all
 )
 
 # CONFIGURATION 
@@ -96,7 +96,7 @@ function Run-Project {
     # Prompt the user if no model was provided in the command line
     if ([string]::IsNullOrWhiteSpace($TargetModel)) {
         Write-Host "`nNo model specified." -ForegroundColor Yellow
-        $TargetModel = Read-Host "Which model would you like to run? [custom_cnn, resnet, vit, all]"
+        $TargetModel = Read-Host "Which model would you like to run? [custom_cnn, resnet, vit, ensemble, all]"
     }
 
     # Sequence Check: Env -> Deps -> Data -> Run
@@ -107,17 +107,22 @@ function Run-Project {
         Invoke-SetupDataset
     }
 
-    # Determine which models to run
+    # Smart Routing for the Ensemble
     $modelsToRun = @()
+    $runEnsemble = $false
+
     if ($TargetModel -eq "all") {
         $modelsToRun = @("custom_cnn", "resnet", "vit")
+        $runEnsemble = $true # Flag the ensemble to run at the very end
+    } elseif ($TargetModel -eq "ensemble") {
+        $runEnsemble = $true # Only run the ensemble
     } else {
         $modelsToRun = @($TargetModel)
     }
 
-    # Loop through and execute
+    # Loop through and execute standard models
     foreach ($m in $modelsToRun) {
-        Write-Host "--> Launching Pipeline for Model: $m" -ForegroundColor Magenta
+        Write-Host "`n--> Launching Pipeline for Model: $m" -ForegroundColor Magenta
         Write-Host "--> Launching Training..." -ForegroundColor Cyan
         & $Python train.py --model $m
 
@@ -132,6 +137,17 @@ function Run-Project {
 
         Write-Host "--> Launching Grad-CAM Visualizations..." -ForegroundColor Cyan
         & $Python run_gradcam.py --model $m
+    }
+
+    # Handle Ensemble Execution Safely
+    if ($runEnsemble) {
+        Write-Host "`n--> Launching Pipeline for Model: ENSEMBLE" -ForegroundColor Magenta
+        Write-Host "--> Skipping Training (Ensemble uses pre-trained ResNet and ViT)" -ForegroundColor DarkGray
+        
+        Write-Host "--> Launching Evaluation..." -ForegroundColor Cyan
+        & $Python evaluate.py --model ensemble
+        
+        Write-Host "--> Skipping Grad-CAM (Cannot mathematically merge heatmaps for an ensemble)" -ForegroundColor DarkGray
     }
 }
 
