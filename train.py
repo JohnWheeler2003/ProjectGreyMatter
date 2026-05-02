@@ -23,29 +23,36 @@ def train_model(model_name):
     else:
         raise ValueError("Invalid model name selected.")
     
-    # DYNAMIC CLASS WEIGHTS SETUP
+    # CLINICAL CLASS WEIGHTING
+
     # 1. Extract labels directly from PyTorch dataset
     train_targets = train_loader.dataset.targets
     class_names = train_loader.dataset.classes
-
-    # 2. Count occurrences of each class index using torch.bincount
-    class_counts = torch.bincount(torch.tensor(train_targets)).tolist()
-    total_samples = sum(class_counts)
-    num_classes = len(class_counts)
-
-    print("\nDynamic Class Distribution Found:")
-    for name, count in zip(class_names, class_counts):
-        print(f" - {name}: {count}")
-
-    # 3. Calculate weights and push to device
-    class_weights = [total_samples / (num_classes * count) for count in class_counts]
-    weights_tensor = torch.tensor(class_weights, dtype=torch.float).to(config.DEVICE)
     
-    print(f"Dynamic Class Weights Applied: {class_weights}")
+    # Use clinical priority weighting.
+    # Heavily penalize missing tumors (especially diffuse gliomas), 
+    # Reduce the penalty for false alarms on healthy brains.
+    
+    custom_weights = []
+    for name in class_names:
+        if name == 'glioma':
+            custom_weights.append(1.0)  # Highest penalty for missing (hardest to detect)
+        elif name == 'meningioma':
+            custom_weights.append(0.9)  # High penalty
+        elif name == 'pituitary':
+            custom_weights.append(0.9)  # High penalty
+        elif name == 'notumor':
+            custom_weights.append(0.4)  # Lowest penalty (Encourage the model to take risks here)
+            
+    weights_tensor = torch.tensor(custom_weights, dtype=torch.float).to(config.DEVICE)
+    
+    print(f"\nClinical Class Priorities Applied:")
+    for name, weight in zip(class_names, custom_weights):
+        print(f" - {name}: {weight}")
 
-    # Pass the weights into the custom FocalLoss as the alpha parameter, and set gamma to the industry standard 2.0.
+    # Pass the custom clinical weights into the FocalLoss
     criterion = FocalLoss(alpha=weights_tensor, gamma=2.0)
-    print("Loss Function: Focal Loss (Gamma=2.0)")
+    print("Loss Function: Focal Loss (Gamma=2.0, Alpha=Clinical Priorities)")
 
     # DYNAMIC LEARNING RATE SETUP
     adjusted_lr = 1e-4 if model_name in ["resnet", "vit"] else config.LEARNING_RATE

@@ -61,11 +61,23 @@ def evaluate_model(model_name):
     print("\nClassification Report:\n")
     print(classification_report(all_labels, all_preds, target_names=class_names, digits=4))
 
+
     # CONFUSION MATRIX
     cm_path = f"{model_name}_confusion_matrix.png"
     cm = confusion_matrix(all_labels, all_preds)
     plot_confusion_matrix(cm, class_names, test_acc, save_path=cm_path)
     print(f"Saved confusion matrix to {cm_path}")
+
+    # Terminal Output of Confusion Matrix
+    print("\n" + "="*50)
+    print(f" {model_name.upper()} RAW CONFUSION MATRIX")
+    print("="*50)
+    print(f"{'':>12} | {'Pred Glioma':>11} | {'Pred Mening':>11} | {'Pred NoTumor':>12} | {'Pred Pituit':>11}")
+    print("-" * 65)
+
+    for i, true_name in enumerate(class_names):
+        print(f"True {true_name[:7]:<7} | {cm[i][0]:>11} | {cm[i][1]:>11} | {cm[i][2]:>12} | {cm[i][3]:>11}")
+    print("="*50 + "\n")
 
     # MISCLASSIFIED VISUALIZATIONS
     misclassified_path = f"{model_name}_misclassified_examples.png"
