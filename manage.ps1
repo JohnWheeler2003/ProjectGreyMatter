@@ -1,6 +1,7 @@
 param (
     [string]$Target = "all",
-    [string]$Model = "" # Options: custom_cnn, resnet, vit, ensemble, all
+    [string]$Model = "", # Options: custom_cnn, resnet, vit, ensemble, all
+    [string]$Threshold = "0.75" # Default cascade threshold
 )
 
 # CONFIGURATION 
@@ -91,7 +92,7 @@ function Invoke-SetupDataset {
 }
 
 function Run-Project {
-    param([string]$TargetModel)
+    param([string]$TargetModel, [string]$ThresholdValue)
 
     # Prompt the user if no model was provided in the command line
     if ([string]::IsNullOrWhiteSpace($TargetModel)) {
@@ -139,13 +140,14 @@ function Run-Project {
         & $Python run_gradcam.py --model $m
     }
 
-    # Handle Ensemble Execution Safely
+    # Handle Ensemble Execution 
     if ($runEnsemble) {
         Write-Host "`n--> Launching Pipeline for Model: ENSEMBLE" -ForegroundColor Magenta
         Write-Host "--> Skipping Training (Ensemble uses pre-trained ResNet and ViT)" -ForegroundColor DarkGray
         
-        Write-Host "--> Launching Evaluation..." -ForegroundColor Cyan
-        & $Python evaluate.py --model ensemble
+        Write-Host "--> Launching Evaluation with Threshold: $ThresholdValue..." -ForegroundColor Cyan
+        
+        & $Python evaluate.py --model ensemble --cascade_threshold $ThresholdValue
         
         Write-Host "--> Skipping Grad-CAM (Cannot mathematically merge heatmaps for an ensemble)" -ForegroundColor DarkGray
     }
@@ -175,7 +177,7 @@ function Clean-Env {
 switch ($Target) {
     "all"       { Install-Deps; Invoke-SetupDataset }
     "setup"     { Invoke-SetupDataset }
-    "run"       { Run-Project -TargetModel $Model } 
+    "run"       { Run-Project -TargetModel $Model -ThresholdValue $Threshold }
     "clean"     { Clean-Files }
     "clean-env" { Clean-Env }
     "rebuild"   { Clean-Env; Install-Deps; Invoke-SetupDataset }
