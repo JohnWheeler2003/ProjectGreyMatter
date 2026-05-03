@@ -9,14 +9,20 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 def plot_training_curves(train_losses, val_losses, train_accuracies, val_accuracies, save_path):
+    """
+    Generates and saves line plots comparing training and validation metrics over epochs.
+    The resulting figure contains two subplots displaying loss and accuracy trends respectively.
+    """
     plt.figure(figsize=(10,4))
     
+    # LOSS CURVES
     plt.subplot(1,2,1)
     plt.plot(train_losses, label="Train Loss")
     plt.plot(val_losses, label="Validation Loss")
     plt.legend()
     plt.title("Loss over Epochs")
 
+    # ACCURACY CURVES
     plt.subplot(1,2,2)
     plt.plot(train_accuracies, label="Train Accuracy")
     plt.plot(val_accuracies, label="Validation Accuracy")
@@ -26,7 +32,12 @@ def plot_training_curves(train_losses, val_losses, train_accuracies, val_accurac
     plt.savefig(save_path)
     plt.close()
 
+
 def plot_confusion_matrix(cm, class_names, test_acc, save_path):
+    """
+    Creates a heatmap visualization of the confusion matrix to evaluate classification performance across categories.
+    The plot includes the total test accuracy in the title and saves the output to the specified path.
+    """
     plt.figure(figsize=(8,6))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=class_names, yticklabels=class_names)
     plt.xlabel("Predicted")
@@ -36,7 +47,12 @@ def plot_confusion_matrix(cm, class_names, test_acc, save_path):
     plt.savefig(save_path)
     plt.close()
 
+
 def get_normalize_params(transform):
+    """
+    Extracts the mean and standard deviation values from a the Torchvision transform pipeline.
+    This is used to identify the specific normalization parameters applied during data preprocessing.
+    """
     mean, std = None, None
     if hasattr(transform, "transforms"):
         for t in transform.transforms:
@@ -46,8 +62,12 @@ def get_normalize_params(transform):
                 break
     return mean, std
 
+
 def unnormalize_tensor(img_tensor, mean, std):
-    """Given a tensor in C,H,W normalized by (mean,std), return H,W,C np array in [0,1]."""
+    """
+    Reverses the normalization on a tensor to convert it back into a viewable image format.
+    The function returns a clipped NumPy array scaled between 0 and 1 for proper display.
+    """
     img = img_tensor.clone().cpu()
     for c in range(img.shape[0]):
         img[c] = img[c] * std[c] + mean[c]
@@ -56,6 +76,10 @@ def unnormalize_tensor(img_tensor, mean, std):
     return img
 
 def visualize_misclassified(all_preds, all_labels, test_data, class_names, save_path, num_to_show=8):
+    """
+    Identifies and plots a grid of images that the model failed to predict correctly.
+    Each image is labeled with its true class and the model's incorrect prediction for diagnostic analysis.
+    """
     mean, std = get_normalize_params(test_data.transform)
     if mean is None or std is None:
         mean, std = (0.5,), (0.5,)
@@ -91,8 +115,8 @@ def visualize_misclassified(all_preds, all_labels, test_data, class_names, save_
 
 class FocalLoss(nn.Module):
     """
-    Focal Loss for imbalanced datasets.
-    FL(p_t) = -alpha_t * (1 - p_t)^gamma * log(p_t)
+    Implements Focal Loss to address class imbalance by down-weighting well-classified easy examples.
+    It focuses training on hard-to-classify samples using a modulating factor governed by the gamma parameter.
     """
     def __init__(self, alpha=None, gamma=2.0, reduction='mean'):
         super(FocalLoss, self).__init__()

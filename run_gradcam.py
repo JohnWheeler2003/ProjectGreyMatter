@@ -15,6 +15,10 @@ from utils import unnormalize_tensor, get_normalize_params
 # ViT outputs a sequence of tokens [Batch, 197, 768] (1 CLS token + 196 patch tokens for a 224x224 image).
 # Strip the CLS token and reshape the 196 patches back into a 14x14 spatial grid.
 def vit_reshape_transform(tensor, height=14, width=14):
+    """
+    Reformats Vision Transformer sequence tokens into a 2D spatial grid for Grad-CAM visualization.
+    It removes the class token and reshapes patch embeddings back into a standard image-like tensor format.
+    """
     result = tensor[:, 1:, :].reshape(tensor.size(0), height, width, tensor.size(2))
     # Bring the channels to the first dimension: [Batch, Channels, Height, Width]
     result = result.transpose(2, 3).transpose(1, 2)
@@ -22,8 +26,7 @@ def vit_reshape_transform(tensor, height=14, width=14):
 
 def find_evaluation_cases(model, test_loader, class_names):
     """
-    Hunts through the test_loader to find one successful and one failed 
-    prediction for each class.
+    Hunts through the test_loader to find one successful and one failed prediction for each class.
     """
     # Dictionaries to store: class_name -> (image_tensor, predicted_class_name)
     successes = {name: None for name in class_names}
@@ -65,7 +68,8 @@ def find_evaluation_cases(model, test_loader, class_names):
 
 def plot_gradcam_grid(cases_dict, category_name, model_name, cam, mean, std):
     """
-    Plots the Grad-CAM grid for either successes or failures.
+    Generates a visual grid showing the original MRI, the Grad-CAM heatmap, and their overlay for specific cases.
+    This helps in auditing the model's decision-making by highlighting the specific anatomical regions driving the prediction.
     """
     # Filter out classes that didn't have a case (e.g., if there were no failures)
     valid_cases = {k: v for k, v in cases_dict.items() if v is not None}
@@ -128,6 +132,10 @@ def plot_gradcam_grid(cases_dict, category_name, model_name, cam, mean, std):
         print(f"  -> Note: No {category_name.lower()} found for classes: {', '.join(missing_cases)}")
 
 def visualize_gradcam(model_name):
+    """
+    Orchestrates the Grad-CAM workflow by loading the specified model, identifying test cases, and saving result grids.
+    It automatically configures target layers and reshape transforms based on whether a CNN or Transformer is selected.
+    """
     print(f"Running Grad-CAM for: {model_name}")
 
     # 1. LOAD DATA (Pull from the test loader)

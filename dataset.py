@@ -13,8 +13,7 @@ class SafeAutocropSquare(object):
     preserving the natural aspect ratio before resizing.
     """
     def __init__(self, threshold=5):
-        # Using a slight threshold (e.g., 5) instead of 0 to aggressively 
-        # ignore faint MRI background noise and faint text artifacts.
+        # Using a slight threshold instead of 0 to aggressively ignore faint MRI background noise and faint text artifacts.
         self.threshold = threshold 
 
     def __call__(self, img):
@@ -73,14 +72,18 @@ class ApplyCLAHE(object):
 
 
 def get_dataloaders(model_name):
+    """
+    Initializes and returns PyTorch DataLoaders for training, validation, and testing with MRI-specific preprocessing.
+    The pipeline applies adaptive contrast enhancement and automated cropping to standardize brain scans across the dataset.
+    """
     target_size = 224 if model_name == "vit" else config.IMAGE_SIZE
 
     # TRAINING TRANSFORMS
     train_transform = transforms.Compose([
         transforms.Grayscale(num_output_channels=1),
-        SafeAutocropSquare(threshold=5),       # 1. Isolate and square the brain
-        ApplyCLAHE(clip_limit=2.0),            # 2. Enhance contrast
-        transforms.Resize((target_size, target_size)), # 3. Safely resize
+        SafeAutocropSquare(threshold=5),
+        ApplyCLAHE(clip_limit=2.0),
+        transforms.Resize((target_size, target_size)),
         transforms.RandomAffine(degrees=0, translate=(0.15, 0.15), scale=(0.9, 1.1)),
         transforms.RandomHorizontalFlip(),
         transforms.RandomRotation(10),
