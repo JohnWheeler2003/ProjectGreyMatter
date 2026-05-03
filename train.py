@@ -31,18 +31,18 @@ def train_model(model_name):
     
     # Use clinical priority weighting.
     # Heavily penalize missing tumors (especially diffuse gliomas), 
-    # Reduce the penalty for false alarms on healthy brains.
+    # Scaled up >= 1.0 to prevent gradient starvation when paired with Focal Loss gamma.
     
     custom_weights = []
     for name in class_names:
         if name == 'glioma':
-            custom_weights.append(1.0)  # Highest penalty for missing (hardest to detect)
+            custom_weights.append(2.5)  # Highest penalty for missing (hardest to detect)
         elif name == 'meningioma':
-            custom_weights.append(0.9)  # High penalty
+            custom_weights.append(2.0)  # High penalty
         elif name == 'pituitary':
-            custom_weights.append(0.9)  # High penalty
+            custom_weights.append(1.5)  # High penalty
         elif name == 'notumor':
-            custom_weights.append(0.4)  # Lowest penalty (Encourage the model to take risks here)
+            custom_weights.append(1.0)  # Lowest penalty (Encourage the model to take risks here)
             
     weights_tensor = torch.tensor(custom_weights, dtype=torch.float).to(config.DEVICE)
     

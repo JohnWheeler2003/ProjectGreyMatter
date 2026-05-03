@@ -32,11 +32,11 @@ class BrainTumorCNN(nn.Module):
         self.bn5 = nn.BatchNorm2d(512)
         self.pool5 = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        # Global Average Pooling (keeps it resolution agnostic)
-        self.adaptive_pool = nn.AdaptiveAvgPool2d((1, 1))
+        # Spatial Grid Pooling (4x4)
+        self.adaptive_pool = nn.AdaptiveAvgPool2d((4, 4))
 
-        # Fully Connected Layers
-        self.fc1 = nn.Linear(512, 256)
+        # Fully Connected Layers (512 channels * 4 * 4 = 8192)
+        self.fc1 = nn.Linear(8192, 256)
         self.dropout = nn.Dropout(0.5)
         self.fc2 = nn.Linear(256, 4)
 
@@ -84,19 +84,17 @@ class PretrainedResNet(nn.Module):
         super(PretrainedResNet, self).__init__()
         # Load pre-trained weights
         self.resnet = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
+        self.grayscale = grayscale
         
-        # If the images are grayscale (1 channel), modify the first conv layer
-        if grayscale:
-            original_conv = self.resnet.conv1
-            self.resnet.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
-            # Copy weights from one of the original RGB channels to maintain pre-training benefit
-            self.resnet.conv1.weight.data = original_conv.weight.data[:, :1, :, :]
-            
         # Replace the final fully connected layer to output 4 classes
         num_ftrs = self.resnet.fc.in_features
         self.resnet.fc = nn.Linear(num_ftrs, num_classes)
 
     def forward(self, x):
+        # Convert [B, 1, H, W] to [B, 3, H, W] cleanly, preserving all original 3-channel weights
+        if self.grayscale:
+            x = x.repeat(1, 3, 1, 1) 
+            
         return self.resnet(x)
 
 # 3. PRE-TRAINED VISION TRANSFORMER (VIT)

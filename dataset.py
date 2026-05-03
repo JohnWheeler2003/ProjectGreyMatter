@@ -81,10 +81,11 @@ def get_dataloaders(model_name):
         SafeAutocropSquare(threshold=5),       # 1. Isolate and square the brain
         ApplyCLAHE(clip_limit=2.0),            # 2. Enhance contrast
         transforms.Resize((target_size, target_size)), # 3. Safely resize
-        transforms.RandomAffine(degrees=0, translate=(0.10, 0.10), scale=(0.90, 1.10)),
+        transforms.RandomAffine(degrees=0, translate=(0.15, 0.15), scale=(0.9, 1.1)),
         transforms.RandomHorizontalFlip(),
         transforms.RandomRotation(10),
         transforms.ToTensor(),
+        transforms.RandomErasing(p=0.5, scale=(0.02, 0.15)),
         transforms.Normalize(config.MEAN, config.STD)
     ])
 
