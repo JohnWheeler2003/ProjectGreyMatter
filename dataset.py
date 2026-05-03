@@ -85,7 +85,7 @@ def get_dataloaders(model_name):
         transforms.RandomHorizontalFlip(),
         transforms.RandomRotation(10),
         transforms.ToTensor(),
-        transforms.RandomErasing(p=0.5, scale=(0.02, 0.15)),
+        transforms.RandomErasing(p=0.2, scale=(0.01, 0.03)),
         transforms.Normalize(config.MEAN, config.STD)
     ])
 
