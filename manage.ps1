@@ -113,7 +113,7 @@ function Run-Project {
     $runEnsemble = $false
 
     if ($TargetModel -eq "all") {
-        $modelsToRun = @("custom_cnn", "resnet", "vit")
+        $modelsToRun = @("custom_cnn","resnet", "vit")
         $runEnsemble = $true # Flag the ensemble to run at the very end
     } elseif ($TargetModel -eq "ensemble") {
         $runEnsemble = $true # Only run the ensemble

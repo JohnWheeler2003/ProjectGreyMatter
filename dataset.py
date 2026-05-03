@@ -85,14 +85,13 @@ def get_dataloaders(model_name):
         transforms.RandomHorizontalFlip(),
         transforms.RandomRotation(10),
         transforms.ToTensor(),
-        transforms.RandomErasing(p=0.2, scale=(0.01, 0.03)),
         transforms.Normalize(config.MEAN, config.STD)
     ])
 
     # VALIDATION/TESTING TRANSFORMS 
     eval_transform = transforms.Compose([
         transforms.Grayscale(num_output_channels=1),
-        SafeAutocropSquare(threshold=5),       # Must apply exact same preprocessing
+        SafeAutocropSquare(threshold=5),
         ApplyCLAHE(clip_limit=2.0),
         transforms.Resize((target_size, target_size)),
         transforms.ToTensor(),

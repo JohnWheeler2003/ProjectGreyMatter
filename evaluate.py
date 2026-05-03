@@ -99,24 +99,30 @@ def evaluate_model(model_name, cascade_threshold=0.75):
                 # 1. Evaluate ViT's confidence in the patient being healthy
                 vit_notumor_probs = prob_vit[:, notumor_idx]
                 vit_confident_healthy = vit_notumor_probs >= cascade_threshold
-                
-                # 2. Default all predictions to ResNet's expert typing
-                preds = torch.argmax(prob_resnet, dim=1)
-                
-                # 3. The Cascade: Override ResNet if ViT is highly confident there is NoTumor
+
+                # 2. Weighted Soft Voting for Tumor Typing
+                # Give ResNet the heavy weight, but allow ViT a minority say
+                w_resnet = 0.70
+                w_vit = 0.30
+                prob_blended = (prob_resnet * w_resnet) + (prob_vit * w_vit)
+
+                # Base our initial guesses on the BLENDED probabilities instead of just ResNet
+                preds = torch.argmax(prob_blended, dim=1)
+
+                # 3. The Cascade: Override the blended guess if ViT is highly confident there is NoTumor
                 preds[vit_confident_healthy] = notumor_idx
-                
-                # 4. The Clinical Catch if ViT detects a tumor, but ResNet missed it
+
+                # 4. The Clinical Catch: Updated to use blended probabilities
                 vit_detects_tumor = ~vit_confident_healthy
-                resnet_missed_tumor = preds == notumor_idx
-                conflict_mask = vit_detects_tumor & resnet_missed_tumor
+                blended_missed_tumor = preds == notumor_idx
+                conflict_mask = vit_detects_tumor & blended_missed_tumor
                 
                 if conflict_mask.any():
-                    # Temporarily remove 'notumor' as an option for ResNet in these specific cases
-                    modified_prob_resnet = prob_resnet.clone()
-                    modified_prob_resnet[conflict_mask, notumor_idx] = -1.0 
-                    # Force ResNet to pick its most likely actual tumor type
-                    preds[conflict_mask] = torch.argmax(modified_prob_resnet[conflict_mask], dim=1)
+                    # Temporarily remove 'notumor' as an option from the BLENDED probabilities
+                    modified_prob_blended = prob_blended.clone()
+                    modified_prob_blended[conflict_mask, notumor_idx] = -1.0 
+                    # Force the ensemble to pick the most likely actual tumor type based on the blend
+                    preds[conflict_mask] = torch.argmax(modified_prob_blended[conflict_mask], dim=1)
                 
                 all_preds.extend(preds.cpu().numpy().tolist())
                 all_labels.extend(labels.cpu().numpy().tolist())
@@ -138,8 +144,8 @@ def evaluate_model(model_name, cascade_threshold=0.75):
     
     if model_name == "ensemble":
         print(f"\nEnsemble Cascade Strategy:")
-        print(f" -> ViT acts as Tumor Screener (Threshold: {cascade_threshold})")
-        print(f" -> ResNet acts as Tumor Typer")
+        print(f" -> ViT acts as NoTumor Screener (Threshold: {cascade_threshold})")
+        print(f" -> Tumor Typing: Soft Voting ({w_resnet*100:.0f} ResNet / {w_vit*100:.0f} ViT)")
         
     print(f"\nTest Accuracy: {test_acc*100:.2f}%")
     print("\nClassification Report:\n")
