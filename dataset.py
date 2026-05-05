@@ -8,43 +8,61 @@ import config
 
 class SafeAutocropSquare(object):
     """
-    Finds the tight bounding box of non-zero pixels (the brain), crops it, 
-    and pads the shorter side with black pixels to create a perfect square, 
-    preserving the natural aspect ratio before resizing.
+    Finds the tight bounding box of the largest contiguous bright shape (the brain),
+    uses morphological opening to detach touching artifacts (like scales),
+    crops out peripheral noise/text, and pads to a perfect square.
     """
-    def __init__(self, threshold=5):
-        # Using a slight threshold instead of 0 to aggressively ignore faint MRI background noise and faint text artifacts.
-        self.threshold = threshold 
+    def __init__(self, buffer=5):
+        self.buffer = buffer
 
     def __call__(self, img):
-        # Convert PIL to numpy
-        img_np = np.array(img)
+        image_np = np.array(img)
         
-        # Identify rows and columns that contain brain tissue
-        rows = np.any(img_np > self.threshold, axis=1)
-        cols = np.any(img_np > self.threshold, axis=0)
+        if len(image_np.shape) == 3:
+            gray = cv2.cvtColor(image_np, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image_np
 
-        # Fallback in case of a completely black/empty image
-        if not rows.any() or not cols.any():
-            return img
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        _, thresh = cv2.threshold(blurred, 45, 255, cv2.THRESH_BINARY)
 
-        ymin, ymax = np.where(rows)[0][[0, -1]]
-        xmin, xmax = np.where(cols)[0][[0, -1]]
+        # Morphological Opening
+        # This breaks thin connections between the skull and touching artifacts.
+        # A 5x5 or 7x7 kernel is usually enough to sever thin scale lines.
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        thresh_opened = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
 
-        # Crop to the tight bounding box
-        cropped_img = img.crop((xmin, ymin, xmax, ymax))
+        # Find contours on the *opened* mask, not the raw threshold
+        contours, _ = cv2.findContours(thresh_opened, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        # Determine padding needed to make it a perfect square
-        w, h = cropped_img.size
-        max_side = max(w, h)
-        pad_w = max_side - w
-        pad_h = max_side - h
+        if not contours:
+            return img 
 
-        # Pad equally on both sides (left, top, right, bottom)
-        padding = (pad_w // 2, pad_h // 2, pad_w - pad_w // 2, pad_h - pad_h // 2)
-        squared_img = ImageOps.expand(cropped_img, padding, fill=0)
+        largest_contour = max(contours, key=cv2.contourArea)
 
-        return squared_img
+        x, y, w, h = cv2.boundingRect(largest_contour)
+
+        x_min = max(0, x - self.buffer)
+        y_min = max(0, y - self.buffer)
+        x_max = min(image_np.shape[1], x + w + self.buffer)
+        y_max = min(image_np.shape[0], y + h + self.buffer)
+
+        cropped = image_np[y_min:y_max, x_min:x_max]
+
+        h_c, w_c = cropped.shape[:2]
+        max_side = max(h_c, w_c)
+        
+        top = (max_side - h_c) // 2
+        bottom = max_side - h_c - top
+        left = (max_side - w_c) // 2
+        right = max_side - w_c - left
+
+        if len(image_np.shape) == 3:
+            squared_image = cv2.copyMakeBorder(cropped, top, bottom, left, right, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+        else:
+            squared_image = cv2.copyMakeBorder(cropped, top, bottom, left, right, cv2.BORDER_CONSTANT, value=0)
+
+        return Image.fromarray(squared_image)
 
 class ApplyCLAHE(object):
     """
@@ -81,7 +99,7 @@ def get_dataloaders(model_name):
     # TRAINING TRANSFORMS
     train_transform = transforms.Compose([
         transforms.Grayscale(num_output_channels=1),
-        SafeAutocropSquare(threshold=5),
+        SafeAutocropSquare(buffer=10),
         ApplyCLAHE(clip_limit=2.0),
         transforms.Resize((target_size, target_size)),
         transforms.RandomAffine(degrees=0, translate=(0.15, 0.15), scale=(0.9, 1.1)),
@@ -94,7 +112,7 @@ def get_dataloaders(model_name):
     # VALIDATION/TESTING TRANSFORMS 
     eval_transform = transforms.Compose([
         transforms.Grayscale(num_output_channels=1),
-        SafeAutocropSquare(threshold=5),
+        SafeAutocropSquare(buffer=10),
         ApplyCLAHE(clip_limit=2.0),
         transforms.Resize((target_size, target_size)),
         transforms.ToTensor(),

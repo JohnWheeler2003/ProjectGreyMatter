@@ -1,7 +1,7 @@
 param (
     [string]$Target = "all",
     [string]$Model = "", # Options: custom_cnn, resnet, vit, ensemble, all
-    [string]$Threshold = "0.75" # Default cascade threshold
+    [string]$Threshold = "0.60" # Default cascade threshold
 )
 
 # CONFIGURATION 
@@ -136,8 +136,19 @@ function Run-Project {
         Write-Host "--> Launching Evaluation..." -ForegroundColor Cyan
         & $Python evaluate.py --model $m
 
-        Write-Host "--> Launching Grad-CAM Visualizations..." -ForegroundColor Cyan
-        & $Python run_gradcam.py --model $m
+        Write-Host "--> Launching Model Learning Visualizations..." -ForegroundColor Cyan
+        & $Python visualize_model.py --model $m
+    }
+    # Run ResNet and ViT Comparison Script
+    if ($TargetModel -eq "all" -or $TargetModel -eq "ensemble") {
+        Write-Host "`n--> Checking requirements for Model Comparison..." -ForegroundColor Magenta
+        
+        if ((Test-Path "resnet_best_model.pth") -and (Test-Path "vit_best_model.pth")) {
+            Write-Host "--> Launching ResNet vs ViT Comparison Visualizations..." -ForegroundColor Cyan
+            & $Python visualize_comparison.py
+        } else {
+            Write-Host "--> Skipping Comparison (Missing ResNet or ViT checkpoints. Train them first!)" -ForegroundColor DarkGray
+        }
     }
 
     # Handle Ensemble Execution 
@@ -149,7 +160,7 @@ function Run-Project {
         
         & $Python evaluate.py --model ensemble --cascade_threshold $ThresholdValue
         
-        Write-Host "--> Skipping Grad-CAM (Cannot mathematically merge heatmaps for an ensemble)" -ForegroundColor DarkGray
+        Write-Host "--> Skipping Visualizations (Cannot mathematically merge heatmaps for an ensemble)" -ForegroundColor DarkGray
     }
 }
 

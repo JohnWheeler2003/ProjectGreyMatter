@@ -33,7 +33,7 @@ def plot_training_curves(train_losses, val_losses, train_accuracies, val_accurac
     plt.close()
 
 
-def plot_confusion_matrix(cm, class_names, test_acc, save_path):
+def plot_confusion_matrix(cm, class_names, test_acc, save_path, model_name):
     """
     Creates a heatmap visualization of the confusion matrix to evaluate classification performance across categories.
     The plot includes the total test accuracy in the title and saves the output to the specified path.
@@ -42,7 +42,7 @@ def plot_confusion_matrix(cm, class_names, test_acc, save_path):
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=class_names, yticklabels=class_names)
     plt.xlabel("Predicted")
     plt.ylabel("True")
-    plt.title(f"Confusion Matrix (Test) - Accuracy: {test_acc*100:.2f}%")
+    plt.title(f"{model_name.upper()} Confusion Matrix (Test) - Accuracy: {test_acc*100:.2f}%")
     plt.tight_layout()
     plt.savefig(save_path)
     plt.close()

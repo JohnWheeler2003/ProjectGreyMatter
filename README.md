@@ -1,108 +1,128 @@
-# ProjectGreyMatter II – MRI Brain Tumor Classification (PyTorch) (README OUT OF DATE AS OF 4/30/26)
+# ProjectGreyMatter II – MRI Brain Tumor Classification
 ## Overview
 
-This project implements a Deep Convolutional Neural Network (CNN) using PyTorch to classify MRI brain images into one of four tumor categories: Glioma, Meningioma, Pituitary, or No Tumor. Currently, the project is expanding upon its base custom CNN architecture to integrate advanced deep learning techniques, including ResNet architectures, data augmentation, learning rate scheduling, hyperparameter tuning, and model interpretability to better visualize how the model makes decisions.
+This project implements a comprehensive deep learning pipeline using PyTorch to classify grayscale MRI brain images into one of four categories: Glioma, Meningioma, Pituitary, or No Tumor. Evolving from a baseline Custom Convolutional Neural Network (CNN), the architecture now integrates ResNet50 and Vision Transformer (ViT-B/16) backbones via transfer learning.
+
+To maximize clinical safety and accuracy, the current pipeline utilizes an advanced Ensemble Cascade Strategy, dynamic clinical class weighting (Focal Loss), and a highly customized automated preprocessing pipeline to handle varying MRI resolutions and noise.
 
 ### Key Features:
 
-- Native hardware acceleration optimized for Intel Core Ultra / Arc Graphics (XPU).
+- **Advanced Preprocessing Pipeline:** Automated tight-bounding box extraction (SafeAutocropSquare) and soft-tissue contrast enhancement (CLAHE).
 
-- Automated training, validation, and checkpointing pipeline.
+- **Multi-Model Support:** Train and evaluate using a custom CNN, ResNet50, or a Vision Transformer (ViT).
 
-- Comprehensive evaluation metrics, including confusion matrices and misclassification visualizations.
+- **Clinical-First Ensemble Inference:** A dual-model soft-voting system featuring a "Clinical Catch" cascade to heavily penalize and override missed tumor detections.
 
-- Fully automated environment setup and execution via Windows PowerShell.
+- **Dynamic Training:** Implements AdamW optimization, OneCycleLR / ReduceLROnPlateau scheduling, and Early Stopping.
+
+- **Explainable AI (XAI) Auditing:** Integrated Grad-CAM (for CNN/ResNet) and Attention Rollout (for Vision Transformers) to generate visual heatmaps. This ensures the models are learning genuine anatomical features rather than dataset artifacts.
+
+- **Native Hardware Acceleration:** Optimized for Intel Core Ultra / Arc Graphics (XPU) with automated environment setup via Windows PowerShell.
 
 ## Project Structure
-To run successfully, your dataset must be placed in a BrainTumorImages/ directory with subfolders for each split:
 ```
 ProjectGreyMatter/
 ├── BrainTumorImages/           # Training, Validation, and Testing splits
 ├── brain/                      # Local Virtual Environment
 ├── manage.ps1                  # Windows PowerShell Automation Script
 ├── config.py                   # Hyperparameters & Hardware Selection
-├── utils.py                    # Plotting & Helper Functions
+├── dataset.py                  # Data Loading, CLAHE, & Custom Transforms
 ├── ultimate_setup_dataset.py   # Downloads, Hashes, Deduplicates, Splits Dataset
-├── dataset.py                  # Data Loading & Transforms
-├── model.py                    # CNN Architecture
-├── train.py                    # Main Entry Point
-└── evaluate.py                 # Model Evaluation & Metrics
+├── utils.py                    # Plotting, Grad-CAM & Focal Loss Functions
+├── model.py                    # CNN, ResNet50, ViT-B/16 Architectures
+├── train.py                    # Main Training & Validation Entry Point
+├── evaluate.py                 # Model Evaluation, Metrics, & Ensemble Inference
+├── cam_utils.py                # Custom Attention Rollout & ViT reshape logic
+├── visualize_model.py          # Generates XAI heatmaps for a single model's successes/failures
+└── visualize_comparison.py     # Side-by-side ResNet (Grad-CAM) vs ViT (Rollout) evaluation
 ```
 
+## Data Preprocessing & Augmentation
+We implemented a custom robust data pipeline in ```dataset.py``` since MRI scans vary wildly in lighting, alignment, and aspect ratio:
 
-Each split in BrainTumorImages/ should contain subfolders representing the four classes:
-```
-Training/
-├──glioma/
-├──meningioma/
-├──pituitary/
-└──notumor/
-```
-## Model & Pipeline Architecture
-Our custom baseline model follows a hierarchical feature extraction approach designed for multi-class MRI classification. It utilizes ```AdaptiveAvgPool2d``` instead of a traditional flat layer to remain robust against varying input resolutions and reduce overfitting.
+**1. Safe Autocrop & Square (SafeAutocropSquare):**\
+Uses thresholding to ignore faint background noise/text, finds the tightest bounding box around the brain tissue, and equally pads the shorter sides with black pixels to create a perfect square. This prevents the distortion of anatomical features during resizing.
 
+**2. Contrast Limited Adaptive Histogram Equalization (ApplyCLAHE):**\
+Enhances soft-tissue contrast while downplaying bright skull intensities, making tumor boundaries significantly clearer for the models.
 
-### Layer Specifications
+**3. Training Augmentations:**\
+To prevent overfitting, the training loader applies RandomAffine (translation and scaling), RandomHorizontalFlip, and RandomRotation.
 
-| Layer Type | Output Channels | Kernel Size | Activation |
-| :--- | :--- | :--- | :--- |
-| Conv Block 1 | 32 | 7×7 | ReLU + BatchNorm |
-| Conv Block 2 | 64 | 3×3 | ReLU + BatchNorm |
-| Conv Block 3 | 128 | 3×3 | ReLU + BatchNorm |
-| Conv Block 4 | 256 | 3×3 | ReLU + BatchNorm |
-| Conv Block 5 | 512 | 3×3 | ReLU + BatchNorm |
-| Adaptive Pool | 512 | 1×1 | - |
-| FC Layer 1 | 256 | - | ReLU + Dropout |
-| Output Layer | 4 | - | Softmax (Logits) |
+## Model Architecture
+The project supports three standalone models and one collaborative ensemble strategy.
+
+**1. The Baseline Custom CNN**\
+A hierarchical 5-block convolutional feature extractor utilizing AdaptiveAvgPool2d to remain robust against varying input resolutions. Weights are optimized via Kaiming initialization.
+
+**2. Pre-trained ResNet50 & Vision Transformer (ViT-B/16)**\
+Both models utilize ImageNet-1K pre-trained weights. Grayscale MRI tensors [B, 1, H, W] are cleanly replicated across three channels [B, 3, H, W] to leverage the learned RGB feature extractors before passing through modified fully connected classification heads.
+
+**3. The Ensemble Cascade Strategy (Evaluation)**\
+When running evaluation in ensemble mode, the script loads both ResNet50 and ViT to make collaborative predictions:
+
+- **ViT Screener:** ViT acts as the primary screener for healthy patients. If ViT confidence in notumor exceeds a configurable threshold (default 75%), it overrides the ensemble.
+
+- **Weighted Soft Voting:** Probabilities are blended, favoring ResNet (70%) for spatial feature extraction, but giving ViT (30%) a minority say for global dependencies.
+
+- **The "Clinical Catch":** If ViT detects a tumor but the blended soft-voting misses it, the pipeline triggers a safety catch. It removes notumor as an option and forces the ensemble to select the most likely tumor type, minimizing dangerous false negatives.
+
 
 
 ## Training Pipeline
-- Optimizer: AdamW (Adam with Decoupled Weight Decay) for improved regularization.
+The training loop (```train.py```) is explicitly tuned for pseudo clinical viability:
+- **Optimizer:** ```AdamW``` (Adam with Decoupled Weight Decay at 0.01) for improved regularization
+- **Loss Function (Focal Loss + Clinical Priority Weights):** Cross entropy was replaced with Focal Loss ($\gamma$ = 2.0) paired with a custom clinical penalty tensor. The pipeline heavily penalizes missing highly dangerous or hard-to detect tumors
+    - ```Glioma```: 2.5 weight (Highest Penalty)
+    - ```Meningioma```: 2.0 weight
+    - ```Pituitary```: 1.5 weight
+    - ```NoTumor```: 1.0 weight (Lowest weight to encourage risk-taking tumor detection)
+- **Learning Rate Schedulers:** 
+    - ```OneCycleLR``` (Custom CNN)
+    - ```ReduceLROnPlateau``` (ResNet & ViT - factors down by 0.1 after patience of 3)
 
-- Loss Function: Cross-Entropy Loss
-
-- Scheduler: OneCycleLR with max_lr set to 0.0003
-
-- Hardware Acceleration: Auto-detects and utilizes the native PyTorch XPU backend (Intel Integrated/Discrete GPUs and NPUs).
+- **Callbacks:** Model state is saved purely on Validation Accuracy. Early stopping halts training if Validation Loss fails to improve after 7 epochs. 
 
 
 ## How to Run (Windows PowerShell)
 
-The project is fully automated using manage.ps1. If you encounter a script execution error, run the following command in PowerShell first:
-
-```Set-ExecutionPolicy RemoteSigned -Scope CurrentUser``` 
+The project environment is fully automated using manage.ps1. If you encounter a script execution error, run the following command in PowerShell first ```Set-ExecutionPolicy RemoteSigned -Scope CurrentUser``` 
 
 
 | PowerShell Command | Description|
 | :--- | :--- |
-| ```.\manage.ps1 all``` | Install dependencies automatically based on the hardware that is present, creates the brain venv, and downloads/creates the BrainTumorImage folders and splits: | 
-| ```.\manage.ps1 run``` | Runs the full training and evaluation pipeline: |
-| ```.\manage.ps1 clean``` | Clean Temporary Files Removes __pycache__, .png plots, and .pth checkpoints: |
-| ```.\manage.ps1 rebuild``` | Full Rebuild Deletes the environment and reinstalls everything from scratch: |
+| ```.\manage.ps1 all``` | Installs hardware-specific dependencies, creates the ```brain``` venv, and downloads/splits the dataset. | 
+| ```.\manage.ps1 run``` | Runs the full pipeline: trains the model, evaluates metrics, and generates XAI visual heatmaps. |
+| ```.\manage.ps1 clean``` | Removes ```__pycache__```, ```.png``` plots, and ```.pth``` checkpoints. |
+| ```.\manage.ps1 rebuild``` | Deletes the environment and reinstalls everything from scratch: |
 
+_(Note: To run specific steps manually, you can execute ```python train.py --model [custom_cnn|resnet|vit]```, ```python evaluate.py --model [custom_cnn|resnet|vit]```, and ```python visualize_model.py --model [custom_cnn|resnet|vit]``` directly inside the virtual environment)_
 
 ## Evaluation & Outputs
 
-The pipeline evaluates the model on a dedicated validation set after every epoch. It utilizes a "Best-Model" saving strategy, tracking validation accuracy and only saving the state if it outperforms previous epochs. To ensure reproducibility, the project uses a fixed transformation pipeline and a checkpoint-based testing protocol.
+The pipeline evaluates the model on a dedicated testing set to ensure strict reproducibility. Running inference generates the following artifacts:
 
-Generated Artifacts:
 | File | Description |
 | :--- | :--- |
-| best_brain_tumor_cnn.pth | The highest-performing model checkpoint. |
-| training_validation_curves.png | Dual-plot analyzing learning behavior (Loss & Accuracy). |
-| confusion_matrix.png | Visual matrix of predicted vs. actual classifications. |
-| misclassified_examples.png | Sample visualization of images the model misclassified. |
+| [model]_best_model.pth | The highest-performing model checkpoint. |
+| [model]_training_curves.png | Dual-plot analyzing learning behavior (Loss & Accuracy) |
+| [model]_confusion_matrix.png | Visual matrix of predicted vs. actual classifications. |
+| [model]_misclassified_examples.png | Sample visualization of images the model misclassified. |
+| [model]_explanation\_[successes/failures].png | Heat maps showing model focus (Grad-Cam/Rollout) on correct and incorrect predictions |
+| comparison_[outcome].png | Side-by-Side visual comparison pitting ResNet against ViT on identical images. |
+| augmented_sample_[class].png | Raw 512 x 512 augmented image samples fed to the XAI generators |
 
-The pipeline also automatically computes Precision, Recall, F1-score, and Per-class accuracy.
+The terminal also outputs a standard ```classification_report``` detailing Precision, Recall, and F1-scores per class.
 
 
 ## Future Improvements
 
-While current development focuses on ResNet integration and hyperparameter tuning, future iterations of this project may explore:
+While current development has established a robust baseline for multi-model inference, future iterations of this project will focus on:
 
-- Deployment as a lightweight web application for real-time inference.
+- **Ensemble Optimization:** Exploring and integrating additional model architectures (e.g., EfficientNet, ConvNeXt) to create a more diverse and highly accurate ensemble, further increasing the clinical viability of the cascade strategy.
 
-- Exploring Vision Transformers (ViT) as an alternative to convolution-based architectures.
+- **Clinical Deployment:** Wrapping the trained models and ensemble logic into a lightweight web API (e.g., FastAPI or Flask) to facilitate real-time clinical testing, inference, and seamless front-end integration.
+
 
 ## Authors
 

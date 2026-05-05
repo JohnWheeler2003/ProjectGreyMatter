@@ -8,7 +8,7 @@ from dataset import get_dataloaders
 from model import BrainTumorCNN, PretrainedResNet, PretrainedViT
 from utils import plot_confusion_matrix, visualize_misclassified
 
-def evaluate_model(model_name, cascade_threshold=0.75):
+def evaluate_model(model_name, cascade_threshold=0.55):
     print(f"Evaluation Model: {model_name.upper()}")
     
     softmax = torch.nn.Softmax(dim=1)
@@ -102,11 +102,11 @@ def evaluate_model(model_name, cascade_threshold=0.75):
 
                 # 2. Weighted Soft Voting for Tumor Typing
                 # Give ResNet the heavy weight, but allow ViT a minority say
-                w_resnet = 0.70
-                w_vit = 0.30
+                w_resnet = 0.60
+                w_vit = 0.40
                 prob_blended = (prob_resnet * w_resnet) + (prob_vit * w_vit)
 
-                # Base our initial guesses on the BLENDED probabilities instead of just ResNet
+                # Base initial guesses on the BLENDED probabilities instead of just ResNet
                 preds = torch.argmax(prob_blended, dim=1)
 
                 # 3. The Cascade: Override the blended guess if ViT is highly confident there is NoTumor
@@ -154,7 +154,7 @@ def evaluate_model(model_name, cascade_threshold=0.75):
     # CONFUSION MATRIX
     cm_path = f"{model_name}_confusion_matrix.png"
     cm = confusion_matrix(all_labels, all_preds)
-    plot_confusion_matrix(cm, class_names, test_acc, save_path=cm_path)
+    plot_confusion_matrix(cm, class_names, test_acc, save_path=cm_path, model_name=model_name)
     print(f"Saved confusion matrix to {cm_path}")
 
     # TERMINAL OUTPUT
@@ -178,7 +178,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default="custom_cnn", 
                         choices=["custom_cnn", "resnet", "vit", "ensemble"], 
                         help="Name of the model to evaluate")
-    parser.add_argument("--cascade_threshold", type=float, default=0.50,
+    parser.add_argument("--cascade_threshold", type=float, default=0.55,
                         help="Confidence threshold (0.0 to 1.0) for ViT to safely rule out a tumor. Default 0.50")
     args = parser.parse_args()
     evaluate_model(args.model, args.cascade_threshold)
