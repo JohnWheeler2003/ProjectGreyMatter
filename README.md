@@ -109,6 +109,7 @@ The pipeline evaluates the model on a dedicated testing set to ensure strict rep
 | [model]_confusion_matrix.png | Visual matrix of predicted vs. actual classifications. |
 | [model]_misclassified_examples.png | Sample visualization of images the model misclassified. |
 | [model]_explanation\_[successes/failures].png | Heat maps showing model focus (Grad-Cam/Rollout) on correct and incorrect predictions |
+| [model]_classification_report..png | Generates Table with classification report. |
 | comparison_[outcome].png | Side-by-Side visual comparison pitting ResNet against ViT on identical images. |
 | augmented_sample_[class].png | Raw 512 x 512 augmented image samples fed to the XAI generators |
 

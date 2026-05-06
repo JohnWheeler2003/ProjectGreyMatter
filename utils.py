@@ -7,6 +7,7 @@ import torch
 from torchvision import transforms
 import torch.nn as nn
 import torch.nn.functional as F
+from sklearn.metrics import classification_report
 
 def plot_training_curves(train_losses, val_losses, train_accuracies, val_accuracies, save_path):
     """
@@ -45,6 +46,69 @@ def plot_confusion_matrix(cm, class_names, test_acc, save_path, model_name):
     plt.title(f"{model_name.upper()} Confusion Matrix (Test) - Accuracy: {test_acc*100:.2f}%")
     plt.tight_layout()
     plt.savefig(save_path)
+    plt.close()
+
+def save_classification_report_image(all_labels, all_preds, class_names, save_path, model_name):
+    """
+    Creates a clean, styled table visualization of the classification report 
+    with alternating row colors and a squarer aspect ratio.
+    """
+    # Extract report as a dictionary
+    report_dict = classification_report(all_labels, all_preds, target_names=class_names, output_dict=True)
+    
+    cell_text = []
+    for cls in class_names:
+        prec = f"{report_dict[cls]['precision']:.4f}"
+        rec = f"{report_dict[cls]['recall']:.4f}"
+        f1 = f"{report_dict[cls]['f1-score']:.4f}"
+        cell_text.append([cls, prec, rec, f1])
+
+    # Setup the figure with a squarer dimension
+    fig, ax = plt.subplots(figsize=(6, 6))  # Changed from (8, 4) to (6, 6)
+    ax.axis('off')
+    ax.axis('tight')
+
+    # Create the table
+    col_labels = ["Model", "Precision", "Recall", "F1-Score"]
+    table = ax.table(cellText=cell_text,
+                     colLabels=col_labels,
+                     loc='center',
+                     cellLoc='center')
+
+    # General Styling
+    table.scale(1, 3.5)  # Increased vertical scaling from 2.2 to 3.5 to make rows taller
+    table.auto_set_font_size(False)
+    table.set_fontsize(12)
+
+    # Color Palette
+    header_bg = '#08306B'     # Dark navy blue
+    row_even_bg = '#E6F2FF'   # Very light baby blue
+    row_odd_bg = '#FFFFFF'    # White
+    edge_color = '#B0C4DE'    # Light steel blue borders
+
+    # Apply specific styling cell by cell
+    for (row, col), cell in table.get_celld().items():
+        # Soften the borders
+        cell.set_edgecolor(edge_color)
+        
+        if row == 0:
+            # Header styling
+            cell.set_text_props(weight='bold', color='white')
+            cell.set_facecolor(header_bg)
+        else:
+            # Alternating row colors
+            bg_color = row_even_bg if row % 2 == 0 else row_odd_bg
+            cell.set_facecolor(bg_color)
+            cell.set_text_props(color='black')
+            
+            # First column (Model/Class names) styling
+            if col == 0:
+                cell.set_text_props(weight='bold')
+
+    # Increased pad to 30 to give the taller table breathing room
+    plt.title(f"{model_name.upper()} Classification Report", pad=0, fontsize=16, weight='bold', color='#08306B')
+    plt.tight_layout()
+    plt.savefig(save_path, bbox_inches='tight', dpi=300)
     plt.close()
 
 

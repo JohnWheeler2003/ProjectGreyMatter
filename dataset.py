@@ -99,7 +99,7 @@ def get_dataloaders(model_name):
     # TRAINING TRANSFORMS
     train_transform = transforms.Compose([
         transforms.Grayscale(num_output_channels=1),
-        SafeAutocropSquare(buffer=10),
+        SafeAutocropSquare(buffer=15),
         ApplyCLAHE(clip_limit=2.0),
         transforms.Resize((target_size, target_size)),
         transforms.RandomAffine(degrees=0, translate=(0.15, 0.15), scale=(0.9, 1.1)),
@@ -112,7 +112,7 @@ def get_dataloaders(model_name):
     # VALIDATION/TESTING TRANSFORMS 
     eval_transform = transforms.Compose([
         transforms.Grayscale(num_output_channels=1),
-        SafeAutocropSquare(buffer=10),
+        SafeAutocropSquare(buffer=15),
         ApplyCLAHE(clip_limit=2.0),
         transforms.Resize((target_size, target_size)),
         transforms.ToTensor(),

@@ -2,17 +2,17 @@ import argparse
 import os
 import torch
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 import config
 from dataset import get_dataloaders
 from model import BrainTumorCNN, PretrainedResNet, PretrainedViT
-from utils import plot_confusion_matrix, visualize_misclassified
+from utils import plot_confusion_matrix, visualize_misclassified, save_classification_report_image
 
-def evaluate_model(model_name, cascade_threshold=0.55):
+def evaluate_model(model_name, cascade_threshold=0.75):
     print(f"Evaluation Model: {model_name.upper()}")
     
     softmax = torch.nn.Softmax(dim=1)
-
 
     # ENSEMBLE MODE INITIALIZATION
     if model_name == "ensemble":
@@ -47,7 +47,6 @@ def evaluate_model(model_name, cascade_threshold=0.55):
         model_resnet.eval()
         model_vit.eval()
 
-
     # SINGLE MODEL INITIALIZATION
     else:
         _, _, test_loader, test_data = get_dataloaders(model_name)
@@ -72,7 +71,6 @@ def evaluate_model(model_name, cascade_threshold=0.55):
             return
 
         model.eval()
-
 
     # INFERENCE LOOP
     all_preds, all_labels = [], []
@@ -102,8 +100,8 @@ def evaluate_model(model_name, cascade_threshold=0.55):
 
                 # 2. Weighted Soft Voting for Tumor Typing
                 # Give ResNet the heavy weight, but allow ViT a minority say
-                w_resnet = 0.60
-                w_vit = 0.40
+                w_resnet = 0.48
+                w_vit = 0.52
                 prob_blended = (prob_resnet * w_resnet) + (prob_vit * w_vit)
 
                 # Base initial guesses on the BLENDED probabilities instead of just ResNet
@@ -138,7 +136,6 @@ def evaluate_model(model_name, cascade_threshold=0.55):
     all_preds = np.array(all_preds)
     all_labels = np.array(all_labels)
 
-
     # EVALUATION PIPELINE
     test_acc = accuracy_score(all_labels, all_preds)
     
@@ -150,6 +147,12 @@ def evaluate_model(model_name, cascade_threshold=0.55):
     print(f"\nTest Accuracy: {test_acc*100:.2f}%")
     print("\nClassification Report:\n")
     print(classification_report(all_labels, all_preds, target_names=class_names, digits=4))
+
+    # SAVE CLASSIFICATION REPORT AS PNG 
+    report_path = f"{model_name}_classification_report.png"
+    save_classification_report_image(all_labels, all_preds, class_names, report_path, model_name)
+    print(f"Saved classification report table to {report_path}")
+
 
     # CONFUSION MATRIX
     cm_path = f"{model_name}_confusion_matrix.png"
@@ -178,7 +181,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default="custom_cnn", 
                         choices=["custom_cnn", "resnet", "vit", "ensemble"], 
                         help="Name of the model to evaluate")
-    parser.add_argument("--cascade_threshold", type=float, default=0.55,
+    parser.add_argument("--cascade_threshold", type=float, default=0.8,
                         help="Confidence threshold (0.0 to 1.0) for ViT to safely rule out a tumor. Default 0.50")
     args = parser.parse_args()
     evaluate_model(args.model, args.cascade_threshold)

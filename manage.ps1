@@ -1,7 +1,7 @@
 param (
     [string]$Target = "all",
     [string]$Model = "", # Options: custom_cnn, resnet, vit, ensemble, all
-    [string]$Threshold = "0.60" # Default cascade threshold
+    [string]$Threshold = "0.75" # Default cascade threshold
 )
 
 # CONFIGURATION 

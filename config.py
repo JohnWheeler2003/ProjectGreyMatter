@@ -27,7 +27,7 @@ VAL_DIR = "BrainTumorImages/Validation"
 TEST_DIR = "BrainTumorImages/Testing"
 
 # HYPERPARAMETERS
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 LEARNING_RATE = 0.0001
 NUM_EPOCHS = 100
 IMAGE_SIZE = 512
